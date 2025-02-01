@@ -1,11 +1,28 @@
 const std = @import("std");
 
 const DEBUG = "DEBUG: ";
-const dprint = std.debug.print;
 
+
+const dprint  = std.debug.print;
+const dassert = std.debug.assert;
+
+// Type aliases.
+const GridCoord = struct {
+    x : u8,
+    y : u8,
+};
+
+fn gridCoord(x : u8, y : u8) GridCoord {
+    return .{.x = x, .y = y};
+}
+
+    
 // Grid structure.
-const GRID_SIZE = 2;
-const TILE_NUMBER = GRID_SIZE * GRID_SIZE;
+const GRID_DIMENSION = 2;
+const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
+
+
+// Grid is per row, left to right, top to bottom.
 var grid : [TILE_NUMBER] u8 = undefined;
 
 // Grid movement
@@ -50,9 +67,10 @@ pub fn main() void {
         process_input();
         update_state();
         render();
+        dprint(DEBUG ++ "grid:\n{any}\n", .{grid}); //@debug
     }
 
-    dprint(DEBUG ++ "grid:\n{any}\n", .{grid}); //@debug
+
 }
 
 
@@ -109,13 +127,57 @@ fn update_state() void {
     if (keyPress.down_arrow)  { tile_movement_direction = .DOWN; }
     if (keyPress.right_arrow) { tile_movement_direction = .RIGHT; }
 
-    if (tile_movement_direction == .NONE) { return; }
-
     // Calculate the new grid configuration (if it changes).
-    // ...
+
+    // Find empty tile.
+    var empty_tile_index_tilde : ?usize = null;
+    for (grid, 0..) |tile, i| {
+        if (tile == 0) {
+            empty_tile_index_tilde = i;
+            break;
+        }
+    }
+    
+    const empty_tile_index : u8 = @intCast(empty_tile_index_tilde.?);
+
+    const empty_tile_pos : GridCoord = gridCoord(empty_tile_index % GRID_DIMENSION, empty_tile_index / GRID_DIMENSION);
+
+    // 0 1   -- LEFT --> 1 0
+    // 2 3               2 3
+
+    // 1 2                1 0
+    // 3 0    -- DOWN --> 3 2
 
 
-    dprint(DEBUG ++ "tile_movement_direction: {}\n", .{tile_movement_direction}); //@debug
+    blk: {
+        switch(tile_movement_direction) {
+            .NONE  => { return; },
+            .UP    => {
+                if (empty_tile_pos.y == GRID_DIMENSION - 1) { break :blk; }
+                const swap_tile_index = empty_tile_index + GRID_DIMENSION;
+                grid[empty_tile_index] = grid[swap_tile_index];
+                grid[swap_tile_index] = 0;
+            },
+            .LEFT  => {
+                if (empty_tile_pos.x == GRID_DIMENSION - 1) { break :blk; }
+                const swap_tile_index = empty_tile_index + 1;
+                grid[empty_tile_index] = grid[swap_tile_index];
+                grid[swap_tile_index] = 0;
+            },
+            .DOWN  => {
+                if (empty_tile_pos.y == 0) { break :blk; }
+                const swap_tile_index = empty_tile_index - GRID_DIMENSION;
+                grid[empty_tile_index] = grid[swap_tile_index];
+                grid[swap_tile_index] = 0;
+            },
+            .RIGHT => {
+                if (empty_tile_pos.x == 0) { break :blk; }
+                const swap_tile_index = empty_tile_index - 1;
+                grid[empty_tile_index] = grid[swap_tile_index];
+                grid[swap_tile_index] = 0;
+            },
+        }
+    }
 }
 
 fn render() void {
