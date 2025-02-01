@@ -8,5 +8,6 @@ pub fn main() !void {
     var buffer: [20]u8 = undefined;
     @memset(buffer[0..], 0);
     _ = try stdin.readUntilDelimiterOrEof(buffer[0..], '\n');
+//    _ = try stdin.streamUntilDelimiter(buffer[0..], '\n', 20);
     try stdout.print("Your name is: {s}\n", .{buffer});
 }
