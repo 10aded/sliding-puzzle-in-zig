@@ -2,7 +2,6 @@ const std = @import("std");
 
 const DEBUG = "DEBUG: ";
 
-
 const dprint  = std.debug.print;
 const dassert = std.debug.assert;
 
@@ -15,12 +14,10 @@ const GridCoord = struct {
 fn gridCoord(x : u8, y : u8) GridCoord {
     return .{.x = x, .y = y};
 }
-
     
 // Grid structure.
-const GRID_DIMENSION = 2;
+const GRID_DIMENSION = 4;
 const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
-
 
 // Grid is per row, left to right, top to bottom.
 var grid : [TILE_NUMBER] u8 = undefined;
@@ -67,13 +64,10 @@ pub fn main() void {
         process_input();
         update_state();
         render();
-        dprint(DEBUG ++ "grid:\n{any}\n", .{grid}); //@debug
+        //dprint(DEBUG ++ "grid:\n{any}\n", .{grid}); //@debug
+        debug_print_grid();
     }
-
-
 }
-
-
     
 fn init_program() void {
     // set up rng.
@@ -183,4 +177,15 @@ fn update_state() void {
 fn render() void {
     // TODO... once the grid logic is solid.
 }
-    
+
+fn debug_print_grid() void {
+    for (0..GRID_DIMENSION) |i| {
+        for (0..GRID_DIMENSION) |j| {
+            const index = i * GRID_DIMENSION + j;
+            dprint("{: >4}", .{grid[index]});
+        }
+        dprint("\n", .{});
+    }
+    //     try expectFmt("u8: '0100'", "u8: '{:0^4}'", .{@as(u8, 1)});
+    // try expectFmt("i8: '-1  '", "i8: '{:<4}'", .{@as(i8, -1)});
+}
