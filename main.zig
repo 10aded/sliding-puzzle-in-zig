@@ -2,6 +2,9 @@ const std = @import("std");
 const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
 
+const colors = @import("colors.zig");
+
+    
 const DEBUG = "DEBUG: ";
 
 const dprint  = std.debug.print;
@@ -16,8 +19,7 @@ const VBO           = c_uint;
 const Texture       = c_uint;
 const ShaderProgram = c_uint;
 
-const MAGENTA = Color{255, 0, 255, 255};
-const DEBUG_COLOR = MAGENTA;
+const DEBUG_COLOR = colors.DEBUG;
 
 const GridCoord = struct {
     x : u8,
@@ -277,17 +279,16 @@ fn render() void {
         debug_print_grid();
     }
 
-    const rect1 = rectangle(.{500,500}, 100, 100);
-    draw_color_rectangle(rect1, DEBUG_COLOR);
 
+    draw_grid_geometry();
 
     // gl commands
     // @maybe: move to a separate proc 
 
     
     const gl = zopengl.bindings;
-    
-    gl.clearColor(0.1, 0, 0.1, 1);
+
+    gl.clearColor(0.2, 0.2, 0.2, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // Push color_vertex_buffer data to GPU.
@@ -300,6 +301,53 @@ fn render() void {
 
     
     window.swapBuffers();
+}
+
+fn draw_grid_geometry() void {
+
+    const TILE_WIDTH : f32  = 100;
+    const TILE_BORDER_WIDTH = 0.05 * TILE_WIDTH;
+    const TILE_SPACING      = 0.02 * TILE_WIDTH;
+    const GRID_BORDER_WIDTH = 0.10 * TILE_WIDTH;
+
+
+    const CENTER : Vec2 = .{500, 500};
+
+    const INNER_GRID_WIDTH = GRID_DIMENSION * TILE_WIDTH + (GRID_DIMENSION + 1) * TILE_SPACING + 2 * GRID_DIMENSION * TILE_BORDER_WIDTH;
+    const OUTER_GRID_WIDTH = INNER_GRID_WIDTH + 2 * GRID_BORDER_WIDTH;
+
+    const outer_grid_rectangle = rectangle(CENTER, OUTER_GRID_WIDTH, OUTER_GRID_WIDTH);
+    const inner_grid_rectangle = rectangle(CENTER, INNER_GRID_WIDTH, INNER_GRID_WIDTH);
+
+    var grid_tile_rectangles : [TILE_NUMBER] Rectangle = undefined;
+
+    const TOP_LEFT_TILE_POSX = CENTER[0] - 0.5 * INNER_GRID_WIDTH + TILE_SPACING + TILE_BORDER_WIDTH + 0.5 * TILE_WIDTH;
+    const TOP_LEFT_TILE_POSY = TOP_LEFT_TILE_POSX;
+
+    for (0..GRID_DIMENSION) |j| {
+        const posy = TOP_LEFT_TILE_POSX + @as(f32, @floatFromInt(j)) * (TILE_SPACING + 2 * TILE_BORDER_WIDTH + TILE_WIDTH);
+        for (0..GRID_DIMENSION) |i| {
+            const posx = TOP_LEFT_TILE_POSY + @as(f32, @floatFromInt(i)) * (TILE_SPACING + 2 * TILE_BORDER_WIDTH + TILE_WIDTH);
+            const tile_rect = rectangle(.{posx, posy}, TILE_WIDTH, TILE_WIDTH);
+            grid_tile_rectangles[j * GRID_DIMENSION + i] = tile_rect;
+        }
+    }
+
+    draw_color_rectangle(outer_grid_rectangle, colors.GRID_BORDER);
+    draw_color_rectangle(inner_grid_rectangle, colors.GRID_BACKGROUND);
+
+
+    // TODO... give each tile a unique color.
+
+    const TILE_BORDER_RECT_WIDTH = 2 * TILE_BORDER_WIDTH + TILE_WIDTH;
+    
+    for (grid, 0..) |tile, i| {
+        if (tile == 0) { continue; }
+        const rect = grid_tile_rectangles[i];
+        const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
+        draw_color_rectangle(tile_border_rect, colors.TILE_BORDER);
+        draw_color_rectangle(rect, colors.DEBUG);
+    }
 }
 
 fn debug_print_grid() void {
