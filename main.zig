@@ -337,16 +337,18 @@ fn draw_grid_geometry() void {
     draw_color_rectangle(inner_grid_rectangle, colors.GRID_BACKGROUND);
 
 
-    // TODO... give each tile a unique color.
-
     const TILE_BORDER_RECT_WIDTH = 2 * TILE_BORDER_WIDTH + TILE_WIDTH;
     
     for (grid, 0..) |tile, i| {
         if (tile == 0) { continue; }
+
+        const xval = tile % GRID_DIMENSION;
+        const yval = tile / GRID_DIMENSION;
+        const tile_color = Color{20 + 40 * xval, 90, 30 + 30 * yval, 255};
         const rect = grid_tile_rectangles[i];
         const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
         draw_color_rectangle(tile_border_rect, colors.TILE_BORDER);
-        draw_color_rectangle(rect, colors.DEBUG);
+        draw_color_rectangle(rect, tile_color);
     }
 }
 
