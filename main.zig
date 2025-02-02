@@ -54,15 +54,19 @@ var frame_timestamp : u64 = undefined;
     
 // Keyboard
 const KeyState = packed struct (u8) {
+    w           : bool,
+    a           : bool,
+    s           : bool,
+    d           : bool,
     up_arrow    : bool,
     left_arrow  : bool,
     down_arrow  : bool,
     right_arrow : bool,
-    _padding    : u4,
 };
 
-var keyPress : KeyState = undefined;
-
+var keyDownLastFrame : KeyState = @bitCast(@as(u8, 0));
+var keyDown          : KeyState = @bitCast(@as(u8, 0));
+var keyPress         : KeyState = @bitCast(@as(u8, 0));
 
 // Geometry
 const ColorVertex = struct {
@@ -150,36 +154,42 @@ fn init_grid() void {
 
 
 fn process_input() void {
-    // TODO...
-    // Do actual keyboard processing once glfw (or whatever we use)
-    // is spawing a window.
+    keyDownLastFrame = keyDown;
 
-    // Reset keyPress.
-
-    // keyPress = @bitCast(@as(u8, 0));
-
-    // const stdin = std.io.getStdIn().reader();
-    // var stdin_buffer: [16]u8 = undefined;
+    // Reset keyDown.
+    keyDown = @bitCast(@as(u8, 0));
     
-    // @memset(stdin_buffer[0..], 0);
-    
-    // _ = stdin.readUntilDelimiterOrEof(stdin_buffer[0..], '\n') catch unreachable;
-    // const first_char = stdin_buffer[0];
+    // Poll GLFW for whether keys are down or not.
+    const w_down = glfw.getKey(window, glfw.Key.w) == glfw.Action.press;
+    const a_down = glfw.getKey(window, glfw.Key.a) == glfw.Action.press;
+    const s_down = glfw.getKey(window, glfw.Key.s) == glfw.Action.press;
+    const d_down = glfw.getKey(window, glfw.Key.d) == glfw.Action.press;
 
-    // // Using DVORAK keyboard.
-    // // Qwerty is for mortals.
-    // switch (first_char) {
-    //     ',' => { keyPress.up_arrow    = true; },
-    //     'a' => { keyPress.left_arrow  = true; },
-    //     'o' => { keyPress.down_arrow  = true; },
-    //     'e' => { keyPress.right_arrow = true; },
-    //     else => {
-    //         dprint("Error, press one of: ,aoe\n", .{});
-    //     },
-    // } 
+    const up_arrow_down    = glfw.getKey(window, glfw.Key.up) == glfw.Action.press;
+    const left_arrow_down  = glfw.getKey(window, glfw.Key.left)  == glfw.Action.press;
+    const down_arrow_down  = glfw.getKey(window, glfw.Key.down)  == glfw.Action.press;
+    const right_arrow_down = glfw.getKey(window, glfw.Key.right)  == glfw.Action.press;
+    
+    if (w_down) { keyDown.w = true; }
+    if (a_down) { keyDown.a = true; }
+    if (s_down) { keyDown.s = true; }
+    if (d_down) { keyDown.d = true; }
+    
+    if (up_arrow_down)    { keyDown.up_arrow    = true; }
+    if (left_arrow_down)  { keyDown.left_arrow  = true; }
+    if (down_arrow_down)  { keyDown.down_arrow  = true; }
+    if (right_arrow_down) { keyDown.right_arrow = true; }
+
+    keyPress = @bitCast(@as(u8, @bitCast(keyDown)) & ~ @as(u8, @bitCast(keyDownLastFrame)));
 }
 
 fn update_state() void {
+
+    if (@as(u8, @bitCast(keyPress)) != 0) {
+        dprint(DEBUG ++ "Key press!\n{}\n", .{keyPress}); //@debug
+    }
+    
+    // TODO.. check wasd too! 
     // Determine if a tile movement attempt has been made. 
     if (keyPress.up_arrow)    { tile_movement_direction = .UP; }
     if (keyPress.left_arrow)  { tile_movement_direction = .LEFT; }
