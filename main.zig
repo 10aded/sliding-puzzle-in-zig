@@ -185,16 +185,14 @@ fn process_input() void {
 
 fn update_state() void {
 
-    if (@as(u8, @bitCast(keyPress)) != 0) {
-        dprint(DEBUG ++ "Key press!\n{}\n", .{keyPress}); //@debug
-    }
+    // Reset tile movement.
+    tile_movement_direction = .NONE;
     
-    // TODO.. check wasd too! 
     // Determine if a tile movement attempt has been made. 
-    if (keyPress.up_arrow)    { tile_movement_direction = .UP; }
-    if (keyPress.left_arrow)  { tile_movement_direction = .LEFT; }
-    if (keyPress.down_arrow)  { tile_movement_direction = .DOWN; }
-    if (keyPress.right_arrow) { tile_movement_direction = .RIGHT; }
+    if (keyPress.w or keyPress.up_arrow)    { tile_movement_direction = .UP; }
+    if (keyPress.a or keyPress.left_arrow)  { tile_movement_direction = .LEFT; }
+    if (keyPress.s or keyPress.down_arrow)  { tile_movement_direction = .DOWN; }
+    if (keyPress.d or keyPress.right_arrow) { tile_movement_direction = .RIGHT; }
 
     // Calculate the new grid configuration (if it changes).
 
@@ -216,7 +214,6 @@ fn update_state() void {
 
     // 1 2                1 0
     // 3 0    -- DOWN --> 3 2
-
 
     blk: {
         switch(tile_movement_direction) {
@@ -251,6 +248,10 @@ fn update_state() void {
 
 fn render() void {
 
+    if (tile_movement_direction != .NONE) {
+        debug_print_grid();
+    }
+    
     const gl = zopengl.bindings;
     
     gl.clearColor(0.1, 0, 0.1, 1);
@@ -267,6 +268,7 @@ fn debug_print_grid() void {
         }
         dprint("\n", .{});
     }
+    dprint("\n", .{});
     //     try expectFmt("u8: '0100'", "u8: '{:0^4}'", .{@as(u8, 1)});
     // try expectFmt("i8: '-1  '", "i8: '{:<4}'", .{@as(i8, -1)});
 }
