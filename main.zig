@@ -11,6 +11,11 @@ const dassert = std.debug.assert;
 const Vec2  = @Vector(2, f32);
 const Color = @Vector(4, u8);
 
+const VAO           = c_uint;
+const VBO           = c_uint;
+const Texture       = c_uint;
+const ShaderProgram = c_uint;
+
 const MAGENTA = Color{255, 0, 255, 255};
 const DEBUG_COLOR = MAGENTA;
 
@@ -23,8 +28,17 @@ fn gridCoord(x : u8, y : u8) GridCoord {
     return .{.x = x, .y = y};
 }
 
+// Errors
+const ShaderCompileError = error{ VertexShaderCompFail, FragmentShaderCompFail, ShaderLinkFail };
+
+
 // Window
 var window : *glfw.Window = undefined;
+
+// Graphics globals
+var global_vao    : VAO           = undefined;
+var global_vbo    : VBO           = undefined;
+var global_shader : ShaderProgram = undefined;
 
 // Grid structure.
 const GRID_DIMENSION = 4;
@@ -96,16 +110,24 @@ const Rectangle = struct {
     h   : f32,
 };
 
+fn rectangle(pos : Vec2, w : f32, h : f32) Rectangle {
+    return Rectangle{.pos = pos, .w = w, .h = h};
+}
+
 pub fn main() void {
     stopwatch = std.time.Timer.start() catch unreachable;
     program_start_timestamp = stopwatch.read();
 
+    init_grid();
+
     glfw.init() catch unreachable;
     defer glfw.terminate();
     
-    init_program();
+    init_opengl();
 
-    init_grid();
+    compile_shaders() catch unreachable;
+    
+    setup_array_buffers();
 
     while (!window.shouldClose()) {
         glfw.pollEvents();
@@ -120,11 +142,7 @@ pub fn main() void {
     window.destroy();
 }
     
-fn init_program() void {
-    // set up rng.
-    const seed  = program_start_timestamp;
-    prng        = std.Random.DefaultPrng.init(@bitCast(seed));
-
+fn init_opengl() void {
     // Setup OpenGL.
     const gl_major = 4;
     const gl_minor = 0;
@@ -145,10 +163,13 @@ fn init_program() void {
 }
 
 fn init_grid() void {
+    // Initialize PRNG.
+    const seed  = program_start_timestamp;
+    prng        = std.Random.DefaultPrng.init(@bitCast(seed));
     const random = prng.random();
-    
-    grid = std.simd.iota(u8, TILE_NUMBER);
 
+    // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
+    grid = std.simd.iota(u8, TILE_NUMBER);
     random.shuffle(u8, &grid);
 }
 
@@ -248,15 +269,36 @@ fn update_state() void {
 
 fn render() void {
 
+    defer {
+        color_vertex_buffer_index = 0;
+    }
+    
     if (tile_movement_direction != .NONE) {
         debug_print_grid();
     }
+
+    const rect1 = rectangle(.{500,500}, 100, 100);
+    draw_color_rectangle(rect1, DEBUG_COLOR);
+
+
+    // gl commands
+    // @maybe: move to a separate proc 
+
     
     const gl = zopengl.bindings;
     
     gl.clearColor(0.1, 0, 0.1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
+    // Push color_vertex_buffer data to GPU.
+    gl.bufferSubData(gl.ARRAY_BUFFER,
+                     0,
+                     @as(c_int, @intCast(color_vertex_buffer_index)) * 5 * @sizeOf(f32),
+                     &color_vertex_buffer[0]);
+    // Draw the triangles.
+    gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
+
+    
     window.swapBuffers();
 }
 
@@ -269,24 +311,26 @@ fn debug_print_grid() void {
         dprint("\n", .{});
     }
     dprint("\n", .{});
-    //     try expectFmt("u8: '0100'", "u8: '{:0^4}'", .{@as(u8, 1)});
-    // try expectFmt("i8: '-1  '", "i8: '{:<4}'", .{@as(i8, -1)});
 }
 
-fn draw_color_rect( rect : Rectangle , color : Color) void {
+fn draw_color_rectangle( rect : Rectangle , color : Color) void {
     // Compute the coordinates of the corners of the rectangle.
     const xleft   = rect.pos[0] - 0.5 * rect.w;
     const xright  = rect.pos[0] + 0.5 * rect.w;
     const ytop    = rect.pos[1] - 0.5 * rect.h;
     const ybottom = rect.pos[1] + 0.5 * rect.h;
 
+    const r = @as(f32, @floatFromInt(color[0])) / 255;
+    const g = @as(f32, @floatFromInt(color[1])) / 255;
+    const b = @as(f32, @floatFromInt(color[2])) / 255;
+    
     // Compute nodes we will push to the GPU.
-    const v0 = colorVertex(xleft,  ytop, color.r, color.g, color.b);
-    const v1 = colorVertex(xright, ytop, color.r, color.g, color.b);
-    const v2 = colorVertex(xleft,  ybottom, color.r, color.g, color.b);
+    const v0 = colorVertex(xleft,  ytop, r, g, b);
+    const v1 = colorVertex(xright, ytop, r, g, b);
+    const v2 = colorVertex(xleft,  ybottom, r, g, b);
     const v3 = v1;
     const v4 = v2;
-    const v5 = colorVertex(xright, ybottom, color.r, color.g, color.b);
+    const v5 = colorVertex(xright, ybottom, r, g, b);
 
     // Set the color_buffer with the data.
     const buffer = &color_vertex_buffer;
@@ -300,4 +344,96 @@ fn draw_color_rect( rect : Rectangle , color : Color) void {
     buffer[i + 5] = v5;
     
     color_vertex_buffer_index += 6;
+}
+
+
+
+fn compile_shaders() ShaderCompileError!void {
+
+    const gl = zopengl.bindings;
+    
+    const vSID : c_uint = gl.createShader(gl.VERTEX_SHADER);
+    const fSID : c_uint = gl.createShader(gl.FRAGMENT_SHADER);
+
+    const vertex_shader_source   = @embedFile("vertex.glsl");
+    const fragment_shader_source = @embedFile("fragment.glsl");
+    
+    const vss_location : [*c] const u8 = &vertex_shader_source[0];
+    const fss_location : [*c] const u8 = &fragment_shader_source[0];
+
+    // Add the source of the shaders to the objects.
+    gl.shaderSource(vSID, 1, &vss_location, null);
+    gl.shaderSource(fSID, 1, &fss_location, null);
+
+    // Attempt to compile the shaders.
+    gl.compileShader(vSID);
+    gl.compileShader(fSID);
+
+    // Check the shaders actually compiled.
+    var vertex_success   : c_int = undefined;
+    var fragment_success : c_int = undefined;
+
+    gl.getShaderiv(vSID, gl.COMPILE_STATUS, &vertex_success);
+    gl.getShaderiv(fSID, gl.COMPILE_STATUS, &fragment_success);
+
+    var log_bytes : [512] u8 = undefined;
+
+    if (vertex_success != gl.TRUE) {
+        gl.getShaderInfoLog(vSID, 512, null, &log_bytes);
+        dprint("{s}\n", .{log_bytes});
+        return ShaderCompileError.VertexShaderCompFail;
+    } else {
+        dprint("DEBUG: vertex shader compilation: success\n", .{}); //@debug
+    }
+
+    if (fragment_success != gl.TRUE) {
+        gl.getShaderInfoLog(fSID, 512, null, &log_bytes);
+        dprint("{s}\n", .{log_bytes});
+        return ShaderCompileError.FragmentShaderCompFail;
+    } else {
+        dprint("DEBUG: fragment shader compilation: success\n", .{}); //@debug
+    }
+
+	// Attempt to link shaders.
+    const pID : c_uint = gl.createProgram();
+    gl.attachShader(pID, vSID);
+    gl.attachShader(pID, fSID);
+    gl.linkProgram(pID);
+
+	// Check for linking errors. If none, clean up shaders.
+    var compile_success : c_int = undefined;
+	gl.getProgramiv(pID, gl.LINK_STATUS, &compile_success);
+
+	if(compile_success != gl.TRUE) {
+		gl.getProgramInfoLog(pID, 512, null, &log_bytes);
+        dprint("{s}\n", .{log_bytes});
+        return ShaderCompileError.ShaderLinkFail;
+	} else {
+        dprint("DEBUG: vertex and fragment shader linkage: success\n", .{}); //@debug
+    	gl.deleteShader(vSID);
+		gl.deleteShader(fSID);
+    }
+
+    global_shader = pID;
+
+    // (Finally) make the shader active.
+	gl.useProgram(global_shader);
+}
+
+fn setup_array_buffers() void {
+    
+    const gl = zopengl.bindings;
+
+    gl.genVertexArrays(1, &global_vao);
+    gl.bindVertexArray(global_vao);
+
+    gl.genBuffers(1, &global_vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, global_vbo);
+
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(color_vertex_buffer)), null, gl.DYNAMIC_DRAW);
+
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+    gl.enableVertexAttribArray(0);
+    gl.enableVertexAttribArray(1);
 }
