@@ -1,0 +1,34 @@
+.{
+    .name = "sliding-puzzle",
+    .version = "0.0.1",
+    .minimum_zig_version = "0.14.0-dev.3020+c104e8644",
+
+    // NOTE: The following dependencies have been copied into
+    // the source code, for the moment.
+
+    // When they work with Zig 0.14.0 (not yet released)
+    // we'll aim to updated them to their github links.
+
+    // For now, they'll stay local!
+
+    .dependencies = .{
+
+        // Downloaded from:
+        // https://github.com/zig-gamedev/zglfw
+        .zglfw = .{
+               .path = "./deps/zglfw",
+        },
+
+        // Downloaded from:
+        // https://github.com/zig-gamedev/zopengl
+        
+        .zopengl = .{
+        .path = "./deps/zopengl",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        // TODO...
+    },
+}

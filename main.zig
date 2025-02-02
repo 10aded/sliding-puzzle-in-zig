@@ -6,6 +6,12 @@ const dprint  = std.debug.print;
 const dassert = std.debug.assert;
 
 // Type aliases.
+const Vec2  = @Vector(2, f32);
+const Color = @Vector(4, u8);
+
+const MAGENTA = Color{255, 0, 255, 255};
+const DEBUG_COLOR = MAGENTA;
+
 const GridCoord = struct {
     x : u8,
     y : u8,
@@ -52,8 +58,36 @@ const KeyState = packed struct (u8) {
 
 var keyPress : KeyState = undefined;
 
-pub fn main() void {
 
+// Geometry
+const ColorVertex = struct {
+    x : f32,
+    y : f32,
+    r : f32,
+    g : f32,
+    b : f32,
+};
+
+fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32) ColorVertex{
+    return ColorVertex{.x = x, .y = y, .r = r, .g = g, .b = b};
+};
+
+// TODO:
+// This game is a rare instance where the number of triangles drawn
+// each frame is the same, so we can specify the number of them precisely.
+// ... update 1000 to three times this number!
+
+var color_vertex_buffer : [1000] ColorVertex = undefined;
+var color_vertex_buffer_index : usize = 0;
+
+// Here pos represents the center of the rectangle.
+const Rectangle = struct {
+    pos : Vec2,
+    w   : f32,
+    h   : f32,
+};
+
+pub fn main() void {
     
     stopwatch = std.time.Timer.start() catch unreachable;
     program_start_timestamp = stopwatch.read();
@@ -175,6 +209,9 @@ fn update_state() void {
 }
 
 fn render() void {
+    
+    
+    
     // TODO... once the grid logic is solid.
 }
 
@@ -188,4 +225,35 @@ fn debug_print_grid() void {
     }
     //     try expectFmt("u8: '0100'", "u8: '{:0^4}'", .{@as(u8, 1)});
     // try expectFmt("i8: '-1  '", "i8: '{:<4}'", .{@as(i8, -1)});
+}
+
+
+
+fn draw_color_rect( rect : Rectangle , color : Color) void {
+    // Compute the coordinates of the corners of the rectangle.
+    const xleft   = rect.pos[0] - 0.5 * rect.w;
+    const xright  = rect.pos[0] + 0.5 * rect.w;
+    const ytop    = rect.pos[1] - 0.5 * rect.h;
+    const tbottom = rect.pos[1] + 0.5 * rect.h;
+
+    // Compute nodes we will push to the GPU.
+    const v0 = colorVertex(xleft,  ytop, color.r, color.g, color.b);
+    const v1 = colorVertex(xright, ytop, color.r, color.g, color.b);
+    const v2 = colorVertex(xleft,  ybottom, color.r, color.g, color.b);
+    const v3 = v1;
+    const v4 = v2;
+    const v5 = colorVertex(xright, ybottom, color.r, color.g, color.b);
+
+    // Set the color_buffer with the data.
+    const buffer = &color_vertex_buffer;
+    const i      = color_vertex_buffer_index;
+
+    buffer[i + 0] = v0;
+    buffer[i + 1] = v1;
+    buffer[i + 2] = v2;
+    buffer[i + 3] = v3;
+    buffer[i + 4] = v4;
+    buffer[i + 5] = v5;
+    
+    color_vertex_buffer_index += 6;
 }
