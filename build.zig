@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     
     const exe = b.addExecutable(.{
         .name = "glfw-test",
-		.root_source_file = b.path("glfw-test.zig"),
+		.root_source_file = b.path("main.zig"),
 		.target = target, .optimize = optimize,
     });
     

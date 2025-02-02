@@ -22,10 +22,10 @@ pub fn main() !void {
 
     try zopengl.loadCoreProfile(glfw.getProcAddress, gl_major, gl_minor);
 
-    const gl = zopengl.bindings;
-
     glfw.swapInterval(1);
 
+    const gl = zopengl.bindings;
+    
     while (!window.shouldClose()) {
         glfw.pollEvents();
 

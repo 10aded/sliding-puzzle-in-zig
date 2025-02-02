@@ -1,4 +1,6 @@
 const std = @import("std");
+const glfw = @import("zglfw");
+const zopengl = @import("zopengl");
 
 const DEBUG = "DEBUG: ";
 
@@ -20,7 +22,10 @@ const GridCoord = struct {
 fn gridCoord(x : u8, y : u8) GridCoord {
     return .{.x = x, .y = y};
 }
-    
+
+// Window
+var window : *glfw.Window = undefined;
+
 // Grid structure.
 const GRID_DIMENSION = 4;
 const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
@@ -40,7 +45,7 @@ const GridMovementDirection = enum (u8) {
 var tile_movement_direction : GridMovementDirection = .NONE;
 
 // Random number generator
-var prng : std.rand.Xoshiro256 = undefined;
+var prng : std.Random.Xoshiro256 = undefined;
 
 // Timing
 var stopwatch : std.time.Timer = undefined;
@@ -70,7 +75,7 @@ const ColorVertex = struct {
 
 fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32) ColorVertex{
     return ColorVertex{.x = x, .y = y, .r = r, .g = g, .b = b};
-};
+}
 
 // TODO:
 // This game is a rare instance where the number of triangles drawn
@@ -88,25 +93,51 @@ const Rectangle = struct {
 };
 
 pub fn main() void {
-    
     stopwatch = std.time.Timer.start() catch unreachable;
     program_start_timestamp = stopwatch.read();
+
+    glfw.init() catch unreachable;
+    defer glfw.terminate();
+    
     init_program();
+
     init_grid();
 
-    while(true) {
+    while (!window.shouldClose()) {
+        glfw.pollEvents();
+
         process_input();
+
         update_state();
+
         render();
-        //dprint(DEBUG ++ "grid:\n{any}\n", .{grid}); //@debug
-        debug_print_grid();
     }
+
+    window.destroy();
 }
     
 fn init_program() void {
     // set up rng.
     const seed  = program_start_timestamp;
-    prng        = std.rand.DefaultPrng.init(@bitCast(seed));
+    prng        = std.Random.DefaultPrng.init(@bitCast(seed));
+
+    // Setup OpenGL.
+    const gl_major = 4;
+    const gl_minor = 0;
+    glfw.windowHint(.context_version_major, gl_major);
+    glfw.windowHint(.context_version_minor, gl_minor);
+    glfw.windowHint(.opengl_profile, .opengl_core_profile);
+    glfw.windowHint(.opengl_forward_compat, true);
+    glfw.windowHint(.client_api, .opengl_api);
+    glfw.windowHint(.doublebuffer, true);
+
+    window = glfw.Window.create(1000, 1000, "Sliding Puzzle", null) catch unreachable;
+
+    glfw.makeContextCurrent(window);
+
+    zopengl.loadCoreProfile(glfw.getProcAddress, gl_major, gl_minor) catch unreachable;
+
+    glfw.swapInterval(1);
 }
 
 fn init_grid() void {
@@ -125,27 +156,27 @@ fn process_input() void {
 
     // Reset keyPress.
 
-    keyPress = @bitCast(@as(u8, 0));
+    // keyPress = @bitCast(@as(u8, 0));
 
-    const stdin = std.io.getStdIn().reader();
-    var stdin_buffer: [16]u8 = undefined;
+    // const stdin = std.io.getStdIn().reader();
+    // var stdin_buffer: [16]u8 = undefined;
     
-    @memset(stdin_buffer[0..], 0);
+    // @memset(stdin_buffer[0..], 0);
     
-    _ = stdin.readUntilDelimiterOrEof(stdin_buffer[0..], '\n') catch unreachable;
-    const first_char = stdin_buffer[0];
+    // _ = stdin.readUntilDelimiterOrEof(stdin_buffer[0..], '\n') catch unreachable;
+    // const first_char = stdin_buffer[0];
 
-    // Using DVORAK keyboard.
-    // Qwerty is for mortals.
-    switch (first_char) {
-        ',' => { keyPress.up_arrow    = true; },
-        'a' => { keyPress.left_arrow  = true; },
-        'o' => { keyPress.down_arrow  = true; },
-        'e' => { keyPress.right_arrow = true; },
-        else => {
-            dprint("Error, press one of: ,aoe\n", .{});
-        },
-    }
+    // // Using DVORAK keyboard.
+    // // Qwerty is for mortals.
+    // switch (first_char) {
+    //     ',' => { keyPress.up_arrow    = true; },
+    //     'a' => { keyPress.left_arrow  = true; },
+    //     'o' => { keyPress.down_arrow  = true; },
+    //     'e' => { keyPress.right_arrow = true; },
+    //     else => {
+    //         dprint("Error, press one of: ,aoe\n", .{});
+    //     },
+    // } 
 }
 
 fn update_state() void {
@@ -209,10 +240,13 @@ fn update_state() void {
 }
 
 fn render() void {
+
+    const gl = zopengl.bindings;
     
-    
-    
-    // TODO... once the grid logic is solid.
+    gl.clearColor(0.1, 0, 0.1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    window.swapBuffers();
 }
 
 fn debug_print_grid() void {
@@ -227,14 +261,12 @@ fn debug_print_grid() void {
     // try expectFmt("i8: '-1  '", "i8: '{:<4}'", .{@as(i8, -1)});
 }
 
-
-
 fn draw_color_rect( rect : Rectangle , color : Color) void {
     // Compute the coordinates of the corners of the rectangle.
     const xleft   = rect.pos[0] - 0.5 * rect.w;
     const xright  = rect.pos[0] + 0.5 * rect.w;
     const ytop    = rect.pos[1] - 0.5 * rect.h;
-    const tbottom = rect.pos[1] + 0.5 * rect.h;
+    const ybottom = rect.pos[1] + 0.5 * rect.h;
 
     // Compute nodes we will push to the GPU.
     const v0 = colorVertex(xleft,  ytop, color.r, color.g, color.b);
