@@ -69,9 +69,11 @@ var program_start_timestamp : u64 = undefined;
 var frame_timestamp : u64 = undefined;
 
 // Animation
+const ANIMATION_SLIDING_TILE_TIME : f32 = 0.15;
 var animating_tile : u8 = 0;
 var animation_direction : GridMovementDirection = undefined;
-var start_animation_timestamp : u64 = undefined;
+var animation_start_timestamp : u64 = undefined;
+var animation_fraction : f32 = 0;
 
 // Keyboard
 const KeyState = packed struct (u8) {
@@ -137,6 +139,9 @@ pub fn main() void {
     setup_array_buffers();
 
     while (!window.shouldClose()) {
+
+        frame_timestamp = stopwatch.read();
+        
         glfw.pollEvents();
 
         process_input();
@@ -222,6 +227,21 @@ fn update_state() void {
     if (keyPress.s or keyPress.down_arrow)  { tile_movement_direction = .DOWN; }
     if (keyPress.d or keyPress.right_arrow) { tile_movement_direction = .RIGHT; }
 
+    // Reset animation if key press.
+    if (@as(u8, @bitCast(keyPress)) != 0) {
+        animation_start_timestamp = frame_timestamp;
+    }
+
+    // Check if animation over. Otherwise calculate animation fraction.
+    const secs_since_animation_start = timestamp_delta_to_seconds(frame_timestamp, animation_start_timestamp);
+    if (secs_since_animation_start > ANIMATION_SLIDING_TILE_TIME) {
+        animation_direction = .NONE;
+        animating_tile = 0;
+        animation_fraction = 0;
+    } else {
+        animation_fraction = secs_since_animation_start / ANIMATION_SLIDING_TILE_TIME;
+    }
+    
     // Calculate the new grid configuration (if it changes).
 
     // Find empty tile.
@@ -242,7 +262,10 @@ fn update_state() void {
         switch(tile_movement_direction) {
             .NONE  => { return; },
             .UP    => {
-                if (empty_tile_pos.y == GRID_DIMENSION - 1) { break :blk; }
+                if (empty_tile_pos.y == GRID_DIMENSION - 1) {
+                    animating_tile = 0;
+                    break :blk;
+                }
                 const swap_tile_index = empty_tile_index + GRID_DIMENSION;
                 grid[empty_tile_index] = grid[swap_tile_index];
                 grid[swap_tile_index] = 0;
@@ -250,28 +273,37 @@ fn update_state() void {
                 animation_direction = .UP;
             },
             .LEFT  => {
-                if (empty_tile_pos.x == GRID_DIMENSION - 1) { break :blk; }
+                if (empty_tile_pos.x == GRID_DIMENSION - 1) {
+                    animating_tile = 0;
+                    break :blk;
+                }
                 const swap_tile_index = empty_tile_index + 1;
                 grid[empty_tile_index] = grid[swap_tile_index];
                 grid[swap_tile_index] = 0;
                 animating_tile = grid[empty_tile_index];
-                animation_direction = .UP;
+                animation_direction = .LEFT;
             },
             .DOWN  => {
-                if (empty_tile_pos.y == 0) { break :blk; }
+                if (empty_tile_pos.y == 0) {
+                    animating_tile = 0;
+                    break :blk;
+                }
                 const swap_tile_index = empty_tile_index - GRID_DIMENSION;
                 grid[empty_tile_index] = grid[swap_tile_index];
                 grid[swap_tile_index] = 0;
                 animating_tile = grid[empty_tile_index];
-                animation_direction = .UP;
+                animation_direction = .DOWN;
             },
             .RIGHT => {
-                if (empty_tile_pos.x == 0) { break :blk; }
+                if (empty_tile_pos.x == 0) {
+                    animating_tile = 0;
+                    break :blk;
+                }
                 const swap_tile_index = empty_tile_index - 1;
                 grid[empty_tile_index] = grid[swap_tile_index];
                 grid[swap_tile_index] = 0;
                 animating_tile = grid[empty_tile_index];
-                animation_direction = .UP;
+                animation_direction = .RIGHT;
             },
         }
     }
@@ -312,7 +344,6 @@ fn render() void {
 }
 
 fn draw_grid_geometry() void {
-
     const TILE_WIDTH : f32  = 100;
     const TILE_BORDER_WIDTH = 0.05 * TILE_WIDTH;
     const TILE_SPACING      = 0.02 * TILE_WIDTH;
@@ -350,8 +381,7 @@ fn draw_grid_geometry() void {
     for (grid, 0..) |tile, i| {
         if (tile == 0 or tile == animating_tile) { continue; }
 
-        const coord = gridCoord(tile % GRID_DIMENSION, tile / GRID_DIMENSION);
-        const tile_color = Color{20 + 40 * coord.x, 90, 30 + 30 * coord.y, 255};
+        const tile_color = tile_to_color(tile);
         const rect = grid_tile_rectangles[i];
         const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
         draw_color_rectangle(tile_border_rect, colors.TILE_BORDER);
@@ -360,7 +390,6 @@ fn draw_grid_geometry() void {
 
     // Draw the animating tile (if non-zero).
     if (animating_tile != 0) {
-
         
         const animating_tile_index_tilde = find_tile_index(animating_tile);
         const animating_tile_index : u8 = @intCast(animating_tile_index_tilde.?);
@@ -368,13 +397,26 @@ fn draw_grid_geometry() void {
         const final_tile_rect = grid_tile_rectangles[animating_tile_index];
         const final_tile_pos = final_tile_rect.pos;
 
-        // TODO... calculate the animation position offset.
+        // TODO.. make it move in the proper direction!
 
-        const animating_tile_pos = final_tile_pos;
+        const ANIMATION_DISTANCE = TILE_WIDTH + 2 * TILE_BORDER_WIDTH + TILE_SPACING;
+        const AD = ANIMATION_DISTANCE;
+        
+        const animation_splat : Vec2 = @splat(1 - animation_fraction);
+        const animation_offset_vec : Vec2 = switch(animation_direction) {
+            .NONE => unreachable,
+            .UP   => .{0, AD},
+            .LEFT => .{AD, 0},
+            .DOWN => .{0, -AD},
+            .RIGHT => .{-AD, 0},
+        };
+        const animating_tile_pos = final_tile_pos + animation_splat * animation_offset_vec;
+        const animating_tile_color = tile_to_color(animating_tile);
+        
         const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.w, final_tile_rect.h);
         const animating_tile_border_rect = rectangle(animating_tile_rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
         draw_color_rectangle(animating_tile_border_rect, colors.TILE_BORDER);
-        draw_color_rectangle(animating_tile_rect, colors.DEBUG);
+        draw_color_rectangle(animating_tile_rect, animating_tile_color);
     }
 }
 
@@ -521,4 +563,16 @@ fn find_tile_index( wanted_tile : u8) ?usize {
         }
     }
     return null;
+}
+
+fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
+    // The stopwatch is monotonic, so this shouldn't give an underflow...
+    const nano_diff : f32 = @floatFromInt(t2 - t1);
+    const secs_diff = nano_diff / 1_000_000_000;
+    return secs_diff;
+}
+
+fn tile_to_color(tile : u8) Color {
+    const coord = gridCoord(tile % GRID_DIMENSION, tile / GRID_DIMENSION);
+    return Color{20 + 40 * coord.x, 90, 30 + 30 * coord.y, 255};
 }
