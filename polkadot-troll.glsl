@@ -1,11 +1,15 @@
-#version 330
+ #version 330
 
 uniform float time;
-uniform float radius;
+uniform float radius; // Should be around 0.08095238.
 const   float SMOOTHSTEP_WIDTH = 0.015;
 
-uniform int reps;
-uniform float lp;
+const float SHAPE_CHANGE_PERIOD = 1.0;
+
+uniform int reps; // Should be around 7.
+//uniform float lp_old;
+
+const float PI = 3.1415926535897932384626433832795;
 
 const vec2 CENTER1 = vec2(0.25, 0.25);
 const vec2 CENTER2 = vec2(0.75, 0.75);
@@ -15,11 +19,20 @@ const vec4 KUSAMA_RED = vec4(0.843, 0.059, 0.102, 1);
 
 const vec4 BACKGROUND = KUSAMA_RED;
 const vec4 DISK_COLOR = WHITE; 
+
+
 void main(void)
 {
     // JUST USING MAGIC (NUMBER) COORDS FOR THE MOMENT...
     vec2 normalized_coords = gl_FragCoord.xy / 1000;
     vec2 unit_coord = 2 * normalized_coords - 1.0;
+    
+    // Calculate lp value based on the time.
+    // lp ranges between 1 and 2.
+    //float lp = lp_old;
+    
+    float periodic_value = sin(time / SHAPE_CHANGE_PERIOD * PI);
+    float lp = 1.5 + 0.5 * periodic_value;
     
     vec2 scaled = float(reps) * unit_coord;
     vec2 coord = fract(scaled);
