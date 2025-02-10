@@ -1,3 +1,5 @@
+// TODO... use the polkadot shader to draw the background.
+
 const std = @import("std");
 const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
@@ -462,8 +464,6 @@ fn draw_color_rectangle( rect : Rectangle , color : Color) void {
     
     color_vertex_buffer_index += 6;
 }
-
-
 
 fn compile_shaders() ShaderCompileError!void {
 
