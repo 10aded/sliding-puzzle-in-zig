@@ -61,9 +61,10 @@ const GridMovementDirection = enum (u8) {
 var tile_movement_direction : GridMovementDirection = .NONE;
 
 // Random number generator
-var prng : std.Random.Xoshiro256 = undefined;
+var global_prng : XorShiftPRNG = undefined;
 
 // Timing
+// Note: Timestamps are in nanoseconds.
 var stopwatch : std.time.Timer = undefined;
 var program_start_timestamp : u64 = undefined;
 var frame_timestamp : u64 = undefined;
@@ -176,15 +177,13 @@ fn init_opengl() void {
 
 fn init_grid() void {
     // Initialize PRNG.
-    const seed  = program_start_timestamp;
-    prng        = std.Random.DefaultPrng.init(@bitCast(seed));
-    const random = prng.random();
-
-    // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
+    const seed : u64 = program_start_timestamp;
+    global_prng = initialize_xorshiftprng(seed);
+ 
+   // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
     grid = std.simd.iota(u8, TILE_NUMBER);
-    random.shuffle(u8, &grid);
+    grid = fisher_yates(TILE_NUMBER, grid);
 }
-
 
 fn process_input() void {
     keyDownLastFrame = keyDown;
@@ -575,4 +574,75 @@ fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
 fn tile_to_color(tile : u8) Color {
     const coord = gridCoord(tile % GRID_DIMENSION, tile / GRID_DIMENSION);
     return Color{20 + 40 * coord.x, 90, 30 + 30 * coord.y, 255};
+}
+
+// Random shuffle via Fisher-Yates and a Xorshift PRNG.
+
+// General idea: construct list2 by picking with uniformly
+// random distribution items from list1, and then removing them.
+//
+// NOTE: (Obvious) Picking uniformly randomly from the ordered set
+// {1, 2, 3, 4, 5} is the same as picking uniformly from
+// {5, 4, 3, 2, 1} ... or any other permutation.
+// As such, the algorithm can be condensed into a single list
+// by swapping.
+
+fn fisher_yates(comptime N : u8, original_list : [N] u8) [N] u8 {
+    var list = original_list;
+    for (0..N) |i| {
+        // Pick an random index from 0..N-i;
+        const ii : u8 = @intCast(i);
+        const back_index   = N - 1 - ii;
+        const random_index = get_randomish_byte_up_to(N - ii);
+
+        // Perform the swap.
+        const random_element = list[random_index];
+        const back_element   = list[back_index];
+        list[back_index]     = random_element;
+        list[random_index]   = back_element;
+    }
+    return list;
+}
+
+fn get_randomish_byte( prng : *XorShiftPRNG) u8 {
+    // Pick a byte near the 'middle'.
+    const byte : u8 = @truncate(prng.state >> 32);
+    prng.update_state();
+    return byte;
+}
+
+// Return a random number from 0..<limit <= 255.
+fn get_randomish_byte_up_to(limit : u8) u8 {
+    const remainder = 255 % limit;
+    const modulo_limit = (255 - remainder) - 1;
+    var random_byte : u8 = 0;
+    while (true) {
+        random_byte = get_randomish_byte(&global_prng);
+        if (random_byte <= modulo_limit) {
+            break;
+        }
+    }
+    const final_byte = random_byte % limit;
+    return final_byte;
+}
+
+const XorShiftPRNG = struct {
+    state : u64,
+
+    fn update_state(self : *XorShiftPRNG) void {
+        const x1 = self.state; 
+        const x2 = x1 ^ (x1 << 13);
+        const x3 = x2 ^ (x2 >> 7);
+        const x4 = x3 ^ (x3 << 17);
+        self.state = x4;
+    }
+};
+
+fn initialize_xorshiftprng( seed : u64 ) XorShiftPRNG {
+    var xorshiftprng = XorShiftPRNG{ .state = seed };
+    for (0..10) |i| {
+        _ = i;
+        xorshiftprng.update_state();
+    }
+    return xorshiftprng;
 }
