@@ -12,6 +12,11 @@ const DEBUG = "DEBUG: ";
 const dprint  = std.debug.print;
 const dassert = std.debug.assert;
 
+// Shaders
+const vertex_flat_color = @embedFile("./Shaders/vertex-flat-color.glsl");
+const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
+const fragment_background = @embedFile("./Shaders/fragment-background.glsl");
+
 // Type aliases.
 const Vec2  = @Vector(2, f32);
 const Color = @Vector(4, u8);
@@ -42,7 +47,8 @@ var window : *glfw.Window = undefined;
 // Graphics globals
 var global_vao    : VAO           = undefined;
 var global_vbo    : VBO           = undefined;
-var global_shader : ShaderProgram = undefined;
+
+var flat_color_shader : ShaderProgram = undefined;
 
 // Grid structure.
 const GRID_DIMENSION = 4;
@@ -338,6 +344,7 @@ fn render() void {
                      @as(c_int, @intCast(color_vertex_buffer_index)) * 5 * @sizeOf(f32),
                      &color_vertex_buffer[0]);
     // Draw the triangles.
+    gl.useProgram(flat_color_shader);
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
 
     
@@ -466,14 +473,21 @@ fn draw_color_rectangle( rect : Rectangle , color : Color) void {
 }
 
 fn compile_shaders() ShaderCompileError!void {
+    flat_color_shader = try compile_shader(vertex_flat_color, fragment_flat_color);
+    // TODO... compile the background shader. 
+}
+
+
+
+fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
 
     const gl = zopengl.bindings;
     
     const vSID : c_uint = gl.createShader(gl.VERTEX_SHADER);
     const fSID : c_uint = gl.createShader(gl.FRAGMENT_SHADER);
 
-    const vertex_shader_source   = @embedFile("vertex.glsl");
-    const fragment_shader_source = @embedFile("fragment.glsl");
+    // const vertex_shader_source   = @embedFile("vertex.glsl");
+    // const fragment_shader_source = @embedFile("fragment.glsl");
     
     const vss_location : [*c] const u8 = &vertex_shader_source[0];
     const fss_location : [*c] const u8 = &fragment_shader_source[0];
@@ -531,10 +545,10 @@ fn compile_shaders() ShaderCompileError!void {
 		gl.deleteShader(fSID);
     }
 
-    global_shader = pID;
+    // // (Finally) make the shader active.
+	// gl.useProgram(pID);
 
-    // (Finally) make the shader active.
-	gl.useProgram(global_shader);
+    return pID;
 }
 
 fn setup_array_buffers() void {
