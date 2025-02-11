@@ -4,6 +4,7 @@ const std = @import("std");
 const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
 
+const qoi    = @import("qoi.zig");
 const colors = @import("colors.zig");
 
 const PI    = std.math.pi;
@@ -11,6 +12,13 @@ const DEBUG = "DEBUG: ";
 
 const dprint  = std.debug.print;
 const dassert = std.debug.assert;
+
+// Images
+const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
+const blue_marble_header = qoi.comptime_header_parser(blue_marble_qoi);
+const blue_marble_width  = blue_marble_header.image_width;
+const blue_marble_height = blue_marble_header.image_height;
+var blue_marble_pixel_bytes : [blue_marble_width * blue_marble_height] Color = undefined;
 
 // Shaders
 const vertex_flat_color = @embedFile("./Shaders/vertex-flat-color.glsl");
@@ -150,6 +158,8 @@ pub fn main() void {
 
     init_grid();
 
+    decompress_qoi_images();
+    
     glfw.init() catch unreachable;
     defer glfw.terminate();
     
@@ -174,7 +184,22 @@ pub fn main() void {
 
     window.destroy();
 }
-    
+fn init_grid() void {
+    // Initialize PRNG.
+    const seed : u64 = program_start_timestamp;
+    global_prng = initialize_xorshiftprng(seed);
+ 
+   // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
+    grid = std.simd.iota(u8, TILE_NUMBER);
+    grid = fisher_yates(TILE_NUMBER, grid);
+}
+
+fn decompress_qoi_images() void {
+    qoi.qoi_to_pixels(blue_marble_qoi, blue_marble_width * blue_marble_height, &blue_marble_pixel_bytes);
+    // dprint("DEBUG: blue_marble_header  pixels:\n{any}", .{blue_marble_header}); //@debug
+    dprint("DEBUG: blue_marble_pixel_bytes: {any}\n", .{blue_marble_pixel_bytes[0..12]}); //@debug
+}
+
 fn init_opengl() void {
     // Setup OpenGL.
     const gl_major = 4;
@@ -195,15 +220,7 @@ fn init_opengl() void {
     glfw.swapInterval(1);
 }
 
-fn init_grid() void {
-    // Initialize PRNG.
-    const seed : u64 = program_start_timestamp;
-    global_prng = initialize_xorshiftprng(seed);
- 
-   // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
-    grid = std.simd.iota(u8, TILE_NUMBER);
-    grid = fisher_yates(TILE_NUMBER, grid);
-}
+
 
 fn process_input() void {
     keyDownLastFrame = keyDown;
@@ -364,7 +381,7 @@ fn render() void {
     const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHAPE_CHANGE_TIME);
     
     // TODO: Make the radius go to zero when the puzzle is solved.
-//    const radius_value : f32 = 0.08095238;
+    //    const radius_value : f32 = 0.08095238;
     const radius_value : f32 = 0.028571486;
         
     gl.uniform1f(lp_shader_location,   lp_value);
