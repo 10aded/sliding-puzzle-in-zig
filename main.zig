@@ -50,6 +50,13 @@ var window : *glfw.Window = undefined;
 var global_vao    : VAO           = undefined;
 var global_vbo    : VBO           = undefined;
 
+
+var flat_color_vao : VAO = undefined;
+var flat_color_vbo : VBO = undefined;
+
+var background_vao : VAO = undefined;
+var background_vbo : VBO = undefined;
+
 var flat_color_shader : ShaderProgram = undefined;
 var background_shader : ShaderProgram = undefined;
 
@@ -342,12 +349,17 @@ fn render() void {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // Push color_vertex_buffer data to GPU.
+    gl.bindVertexArray(flat_color_vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
+    
+    gl.useProgram(flat_color_shader);
+    
     gl.bufferSubData(gl.ARRAY_BUFFER,
                      0,
                      @as(c_int, @intCast(color_vertex_buffer_index)) * 5 * @sizeOf(f32),
                      &color_vertex_buffer[0]);
+
     // Draw the triangles.
-    gl.useProgram(flat_color_shader);
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
 
     
@@ -557,11 +569,12 @@ fn setup_array_buffers() void {
     
     const gl = zopengl.bindings;
 
-    gl.genVertexArrays(1, &global_vao);
-    gl.bindVertexArray(global_vao);
+    // Set up flat_color VAO / VBO.
+    gl.genVertexArrays(1, &flat_color_vao);
+    gl.bindVertexArray(flat_color_vao);
 
-    gl.genBuffers(1, &global_vbo);
-    gl.bindBuffer(gl.ARRAY_BUFFER, global_vbo);
+    gl.genBuffers(1, &flat_color_vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
 
     gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(color_vertex_buffer)), null, gl.DYNAMIC_DRAW);
 
@@ -569,6 +582,27 @@ fn setup_array_buffers() void {
     gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
+
+    // Set up background VAO / VBO.
+    var background_vertex_buffer = [6 * 2] f32 {
+        -1, -1,
+        -1, 1,
+        1, 1,
+        -1, -1,
+        1, -1,
+        1, 1,
+    };
+    
+    gl.genVertexArrays(1, &background_vao);
+    gl.bindVertexArray(background_vao);
+
+    gl.genBuffers(1, &background_vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
+
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(background_vertex_buffer)), &background_vertex_buffer[0], gl.STATIC_DRAW);
+
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), @ptrFromInt(0));
+    gl.enableVertexAttribArray(0);
 }
 
 fn find_tile_index( wanted_tile : u8) ?usize {
