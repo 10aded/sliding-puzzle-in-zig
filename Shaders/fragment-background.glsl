@@ -1,19 +1,14 @@
 #version 330
 
-// uniform float time;
-// uniform float radius; // Should be around 0.08095238.
-// uniform int reps; // Should be around 7.
+const float PI = 3.1415926535897932384626433832795;
 
-// @temp! Replace these with uniforms once the frag shader is rendering!!!
-const float time = 0;
-const float radius = 0.08095238;
+uniform float time;
+uniform float radius; // Should be around 0.08095238.
+
 const int reps = 7; // Should be around 7.
 
 const float SMOOTHSTEP_WIDTH = 0.015;
-
-const float SHAPE_CHANGE_PERIOD = 1.0;
-
-const float PI = 3.1415926535897932384626433832795;
+const float SHAPE_CHANGE_PERIOD = 100.0;
 
 const vec2 CENTER1 = vec2(0.25, 0.25);
 const vec2 CENTER2 = vec2(0.75, 0.75);

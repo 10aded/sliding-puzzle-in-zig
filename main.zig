@@ -352,6 +352,19 @@ fn render() void {
     gl.bindVertexArray(background_vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
     gl.useProgram(background_shader);
+
+    // Update uniforms.
+    const time_shader_location   = gl.getUniformLocation(background_shader, "time");
+    const radius_shader_location = gl.getUniformLocation(background_shader, "radius");
+    
+    const time_value   : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
+
+    // TODO: Make the radius go to zero when the puzzle is solved.
+    const radius_value : f32 = 0.08095238;
+
+    gl.uniform1f(time_shader_location,   time_value);
+    gl.uniform1f(radius_shader_location, radius_value);
+    
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
 
     // Draw the grid and tiles.
