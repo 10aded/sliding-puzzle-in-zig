@@ -6,7 +6,7 @@ const zopengl = @import("zopengl");
 
 const colors = @import("colors.zig");
 
-    
+const PI    = std.math.pi;
 const DEBUG = "DEBUG: ";
 
 const dprint  = std.debug.print;
@@ -18,6 +18,8 @@ const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
 
 const vertex_background = @embedFile("./Shaders/vertex-background.glsl");
 const fragment_background = @embedFile("./Shaders/fragment-background.glsl");
+
+const BACKGROUND_SHAPE_CHANGE_TIME = 120;
 
 // Type aliases.
 const Vec2  = @Vector(2, f32);
@@ -354,15 +356,17 @@ fn render() void {
     gl.useProgram(background_shader);
 
     // Update uniforms.
-    const time_shader_location   = gl.getUniformLocation(background_shader, "time");
+    const lp_shader_location   = gl.getUniformLocation(background_shader, "lp");
     const radius_shader_location = gl.getUniformLocation(background_shader, "radius");
     
-    const time_value   : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
+    const program_secs : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
 
+    const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHAPE_CHANGE_TIME);
+    
     // TODO: Make the radius go to zero when the puzzle is solved.
     const radius_value : f32 = 0.08095238;
 
-    gl.uniform1f(time_shader_location,   time_value);
+    gl.uniform1f(lp_shader_location,   lp_value);
     gl.uniform1f(radius_shader_location, radius_value);
     
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));

@@ -2,10 +2,10 @@
 
 const float PI = 3.1415926535897932384626433832795;
 
-uniform float time;
+uniform float lp;
 uniform float radius; // Should be around 0.08095238.
 
-const int reps = 7; // Should be around 7.
+const int reps = 7;
 
 const float SMOOTHSTEP_WIDTH = 0.015;
 const float SHAPE_CHANGE_PERIOD = 100.0;
@@ -25,13 +25,6 @@ void main(void)
     // JUST USING MAGIC (NUMBER) COORDS FOR THE MOMENT...
     vec2 normalized_coords = gl_FragCoord.xy / 1000;
     vec2 unit_coord = 2 * normalized_coords - 1.0;
-    
-    // Calculate lp value based on the time.
-    // lp ranges between 1 and 2.
-    //float lp = lp_old;
-    
-    float periodic_value = sin(time / SHAPE_CHANGE_PERIOD * PI);
-    float lp = 1.5 + 0.5 * periodic_value;
     
     vec2 scaled = float(reps) * unit_coord;
     vec2 coord = fract(scaled);
