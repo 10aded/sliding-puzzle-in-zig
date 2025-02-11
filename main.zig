@@ -1,4 +1,4 @@
-// TODO... use the polkadot shader to draw the background.
+// TODO... add in a header for this project!
 
 const std = @import("std");
 const glfw = @import("zglfw");
@@ -15,6 +15,8 @@ const dassert = std.debug.assert;
 // Shaders
 const vertex_flat_color = @embedFile("./Shaders/vertex-flat-color.glsl");
 const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
+
+const vertex_background = @embedFile("./Shaders/vertex-background.glsl");
 const fragment_background = @embedFile("./Shaders/fragment-background.glsl");
 
 // Type aliases.
@@ -49,6 +51,7 @@ var global_vao    : VAO           = undefined;
 var global_vbo    : VBO           = undefined;
 
 var flat_color_shader : ShaderProgram = undefined;
+var background_shader : ShaderProgram = undefined;
 
 // Grid structure.
 const GRID_DIMENSION = 4;
@@ -473,8 +476,10 @@ fn draw_color_rectangle( rect : Rectangle , color : Color) void {
 }
 
 fn compile_shaders() ShaderCompileError!void {
+
     flat_color_shader = try compile_shader(vertex_flat_color, fragment_flat_color);
-    // TODO... compile the background shader. 
+
+    background_shader = try compile_shader(vertex_background, fragment_background);
 }
 
 
@@ -514,7 +519,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
         dprint("{s}\n", .{log_bytes});
         return ShaderCompileError.VertexShaderCompFail;
     } else {
-        dprint("DEBUG: vertex shader compilation: success\n", .{}); //@debug
+        dprint("DEBUG: vertex shader {} compilation: success\n", .{vSID}); //@debug
     }
 
     if (fragment_success != gl.TRUE) {
@@ -522,7 +527,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
         dprint("{s}\n", .{log_bytes});
         return ShaderCompileError.FragmentShaderCompFail;
     } else {
-        dprint("DEBUG: fragment shader compilation: success\n", .{}); //@debug
+        dprint("DEBUG: fragment shader {} compilation: success\n", .{fSID}); //@debug
     }
 
 	// Attempt to link shaders.
@@ -540,13 +545,10 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
         dprint("{s}\n", .{log_bytes});
         return ShaderCompileError.ShaderLinkFail;
 	} else {
-        dprint("DEBUG: vertex and fragment shader linkage: success\n", .{}); //@debug
+        dprint("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID}); //@debug
     	gl.deleteShader(vSID);
 		gl.deleteShader(fSID);
     }
-
-    // // (Finally) make the shader active.
-	// gl.useProgram(pID);
 
     return pID;
 }
