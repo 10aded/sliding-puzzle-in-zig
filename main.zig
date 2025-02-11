@@ -348,10 +348,15 @@ fn render() void {
     gl.clearColor(0.2, 0.2, 0.2, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Push color_vertex_buffer data to GPU.
+    // Draw the background.
+    gl.bindVertexArray(background_vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
+    gl.useProgram(background_shader);
+    gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
+
+    // Draw the grid and tiles.
     gl.bindVertexArray(flat_color_vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
-    
     gl.useProgram(flat_color_shader);
     
     gl.bufferSubData(gl.ARRAY_BUFFER,
@@ -585,12 +590,12 @@ fn setup_array_buffers() void {
 
     // Set up background VAO / VBO.
     var background_vertex_buffer = [6 * 2] f32 {
-        -1, -1,
-        -1, 1,
-        1, 1,
-        -1, -1,
-        1, -1,
-        1, 1,
+        0, 0,
+        0, 1000,
+        1000, 1000,
+        0, 0,
+        1000, 0,
+        1000, 1000,
     };
     
     gl.genVertexArrays(1, &background_vao);
