@@ -364,8 +364,9 @@ fn render() void {
     const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHAPE_CHANGE_TIME);
     
     // TODO: Make the radius go to zero when the puzzle is solved.
-    const radius_value : f32 = 0.08095238;
-
+//    const radius_value : f32 = 0.08095238;
+    const radius_value : f32 = 0.028571486;
+        
     gl.uniform1f(lp_shader_location,   lp_value);
     gl.uniform1f(radius_shader_location, radius_value);
     

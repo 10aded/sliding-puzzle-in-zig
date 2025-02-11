@@ -5,7 +5,8 @@ const float PI = 3.1415926535897932384626433832795;
 uniform float lp;
 uniform float radius; // Should be around 0.08095238.
 
-const int reps = 7;
+//const int reps = 10;
+const int reps = 4;
 
 const float SMOOTHSTEP_WIDTH = 0.015;
 const float SHAPE_CHANGE_PERIOD = 100.0;
@@ -15,8 +16,9 @@ const vec2 CENTER2 = vec2(0.75, 0.75);
 
 const vec4 WHITE      = vec4(1, 1, 1, 1);
 const vec4 KUSAMA_RED = vec4(0.843, 0.059, 0.102, 1);
+const vec4 BLUE_BLACK = vec4(0.008, 0.02, 0.125, 1);
 
-const vec4 BACKGROUND = KUSAMA_RED;
+const vec4 BACKGROUND = BLUE_BLACK;
 const vec4 DISK_COLOR = WHITE; 
 
 
