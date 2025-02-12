@@ -21,13 +21,31 @@ const blue_marble_height = blue_marble_header.image_height;
 var blue_marble_pixel_bytes : [blue_marble_width * blue_marble_height] Color = undefined;
 
 // Shaders
-const vertex_flat_color = @embedFile("./Shaders/vertex-flat-color.glsl");
-const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
-
 const vertex_background = @embedFile("./Shaders/vertex-background.glsl");
 const fragment_background = @embedFile("./Shaders/fragment-background.glsl");
 
+const vertex_flat_color = @embedFile("./Shaders/vertex-flat-color.glsl");
+const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
+
+const vertex_texture = @embedFile("./Shaders/vertex-texture.glsl");
+const fragment_texture = @embedFile("./Shaders/fragment-texture.glsl");
+
+
+// Constants.
+// Shader
 const BACKGROUND_SHAPE_CHANGE_TIME = 120;
+
+// Grid geometry.
+const TILE_WIDTH : f32  = 100;
+const TILE_BORDER_WIDTH = 0.05 * TILE_WIDTH;
+const TILE_SPACING      = 0.02 * TILE_WIDTH;
+const GRID_BORDER_WIDTH = 0.10 * TILE_WIDTH;
+
+const CENTER : Vec2 = .{500, 500};
+
+const INNER_GRID_WIDTH = GRID_DIMENSION * TILE_WIDTH + (GRID_DIMENSION + 1) * TILE_SPACING + 2 * GRID_DIMENSION * TILE_BORDER_WIDTH;
+const OUTER_GRID_WIDTH = INNER_GRID_WIDTH + 2 * GRID_BORDER_WIDTH;
+
 
 // Type aliases.
 const Vec2  = @Vector(2, f32);
@@ -57,14 +75,20 @@ const ShaderCompileError = error{ VertexShaderCompFail, FragmentShaderCompFail, 
 var window : *glfw.Window = undefined;
 
 // Graphics globals
-var flat_color_vao : VAO = undefined;
-var flat_color_vbo : VBO = undefined;
-
 var background_vao : VAO = undefined;
 var background_vbo : VBO = undefined;
 
-var flat_color_shader : ShaderProgram = undefined;
+var flat_color_vao : VAO = undefined;
+var flat_color_vbo : VBO = undefined;
+
+var texture_vao : VAO = undefined;
+var texture_vbo : VBO = undefined;
+
+// Shaders
 var background_shader : ShaderProgram = undefined;
+var flat_color_shader : ShaderProgram = undefined;
+var texture_shader    : ShaderProgram = undefined;
+
 
 var blue_marble_texture : Texture = undefined;
 
@@ -138,6 +162,17 @@ fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32, tx : f32, ty : f32)
     return ColorVertex{.x = x, .y = y, .r = r, .g = g, .b = b, .tx = tx, .ty = ty};
 }
 
+const TextureVertex = extern struct {
+    x  : f32,
+    y  : f32,
+    tx : f32,
+    ty : f32,
+};
+
+fn textureVertex( x : f32, y : f32, tx : f32, ty : f32) TextureVertex {
+    return TextureVertex{.x = x, .y = y, .tx = tx, .ty = ty};
+}
+
 // TODO:
 // This game is a rare instance where the number of triangles drawn
 // each frame is the same, so we can specify the number of them precisely.
@@ -145,6 +180,9 @@ fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32, tx : f32, ty : f32)
 
 var color_vertex_buffer : [1000] ColorVertex = undefined;
 var color_vertex_buffer_index : usize = 0;
+
+var texture_vertex_buffer : [1000] TextureVertex = undefined;
+var texture_vertex_buffer_index : usize = 0;
 
 // Here pos represents the center of the rectangle.
 const Rectangle = struct {
@@ -353,7 +391,8 @@ fn update_state() void {
 fn render() void {
 
     defer {
-        color_vertex_buffer_index = 0;
+        color_vertex_buffer_index   = 0;
+        texture_vertex_buffer_index = 0;
     }
     
     // if (tile_movement_direction != .NONE) {
@@ -419,16 +458,6 @@ fn render() void {
 }
 
 fn draw_grid_geometry() void {
-    const TILE_WIDTH : f32  = 100;
-    const TILE_BORDER_WIDTH = 0.05 * TILE_WIDTH;
-    const TILE_SPACING      = 0.02 * TILE_WIDTH;
-    const GRID_BORDER_WIDTH = 0.10 * TILE_WIDTH;
-
-
-    const CENTER : Vec2 = .{500, 500};
-
-    const INNER_GRID_WIDTH = GRID_DIMENSION * TILE_WIDTH + (GRID_DIMENSION + 1) * TILE_SPACING + 2 * GRID_DIMENSION * TILE_BORDER_WIDTH;
-    const OUTER_GRID_WIDTH = INNER_GRID_WIDTH + 2 * GRID_BORDER_WIDTH;
 
     const outer_grid_rectangle = rectangle(CENTER, OUTER_GRID_WIDTH, OUTER_GRID_WIDTH);
     const inner_grid_rectangle = rectangle(CENTER, INNER_GRID_WIDTH, INNER_GRID_WIDTH);
@@ -456,11 +485,14 @@ fn draw_grid_geometry() void {
     for (grid, 0..) |tile, i| {
         if (tile == 0 or tile == animating_tile) { continue; }
 
-        const tile_color = tile_to_color(tile);
+        //        const tile_color = tile_to_color(tile);
         const rect = grid_tile_rectangles[i];
         const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
+
         draw_color_rectangle(tile_border_rect, colors.TILE_BORDER);
-        draw_color_rectangle(rect, tile_color);
+
+        // TODO... actually calculate the tl / br coords!
+        draw_texture(rect, .{0,1}, .{1,0});
     }
 
     // Draw the animating tile (if non-zero).
@@ -539,11 +571,52 @@ fn draw_color_rectangle( rect : Rectangle , color : Color) void {
     color_vertex_buffer_index += 6;
 }
 
+fn draw_texture( rect : Rectangle, top_left_texture_coord : Vec2, bottom_right_texture_coord : Vec2) void {
+    const tltc = top_left_texture_coord;
+    const brtc = bottom_right_texture_coord;
+
+    // Compute the coordinates of the corners of the rectangle.
+    const xleft   = rect.pos[0] - 0.5 * rect.w;
+    const xright  = rect.pos[0] + 0.5 * rect.w;
+    const ytop    = rect.pos[1] - 0.5 * rect.h;
+    const ybottom = rect.pos[1] + 0.5 * rect.h;
+
+    // Compute the coordinates of the texture.
+    const sleft   = tltc[0];
+    const sright  = brtc[0];
+    const ttop    = tltc[1];
+    const tbottom = brtc[1];
+
+    // Compute nodes we will push to the GPU.
+    const v0 = textureVertex(xleft, ytop, sleft, ttop);
+    const v1 = textureVertex(xright, ytop, sright, ttop);
+    const v2 = textureVertex(xleft,  ybottom, sleft, tbottom);
+    const v3 = v1;
+    const v4 = v2;
+    const v5 = textureVertex(xright, ybottom, sright, tbottom);
+
+    // Set the texture_buffer with the data.
+    const buffer = &texture_vertex_buffer;
+    const i      = texture_vertex_buffer_index;
+
+    buffer[i + 0] = v0;
+    buffer[i + 1] = v1;
+    buffer[i + 2] = v2;
+    buffer[i + 3] = v3;
+    buffer[i + 4] = v4;
+    buffer[i + 5] = v5;
+    
+    texture_vertex_buffer_index += 6;
+}
+
+
 fn compile_shaders() ShaderCompileError!void {
+
+    background_shader = try compile_shader(vertex_background, fragment_background);
 
     flat_color_shader = try compile_shader(vertex_flat_color, fragment_flat_color);
 
-    background_shader = try compile_shader(vertex_background, fragment_background);
+    texture_shader    = try compile_shader(vertex_texture, fragment_texture);
 }
 
 
