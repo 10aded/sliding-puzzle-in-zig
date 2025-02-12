@@ -510,8 +510,6 @@ fn draw_grid_geometry() void {
         const final_tile_rect = grid_tile_rectangles[animating_tile_index];
         const final_tile_pos = final_tile_rect.pos;
 
-        // TODO.. make it move in the proper direction!
-
         const ANIMATION_DISTANCE = TILE_WIDTH + 2 * TILE_BORDER_WIDTH + TILE_SPACING;
         const AD = ANIMATION_DISTANCE;
         
@@ -524,12 +522,11 @@ fn draw_grid_geometry() void {
             .RIGHT => .{-AD, 0},
         };
         const animating_tile_pos = final_tile_pos + animation_splat * animation_offset_vec;
-        const animating_tile_color = tile_to_color(animating_tile);
-        
+
         const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.w, final_tile_rect.h);
         const animating_tile_border_rect = rectangle(animating_tile_rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
         draw_color_rectangle(animating_tile_border_rect, colors.TILE_BORDER);
-        draw_color_rectangle(animating_tile_rect, animating_tile_color);
+        draw_texture(animating_tile_rect, .{0,1}, .{1,0});
     }
 }
 

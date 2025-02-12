@@ -15,4 +15,5 @@ pub const DEBUG = MAGENTA;
 pub const BACKGROUND  = DARKGRAY2;
 pub const GRID_BORDER = BLACK;
 pub const TILE_BORDER = DARKGRAY1;
-pub const GRID_BACKGROUND = LBLUE2;
+//pub const GRID_BACKGROUND = LBLUE2;
+pub const GRID_BACKGROUND = WHITE;
