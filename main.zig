@@ -55,7 +55,6 @@ const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
 const vertex_texture = @embedFile("./Shaders/vertex-texture.glsl");
 const fragment_texture = @embedFile("./Shaders/fragment-texture.glsl");
 
-
 // Constants.
 // Shader
 const BACKGROUND_SHAPE_CHANGE_TIME = 120;
@@ -510,13 +509,12 @@ fn draw_grid_geometry() void {
     draw_color_rectangle(outer_grid_rectangle, colors.GRID_BORDER);
     draw_color_rectangle(inner_grid_rectangle, colors.GRID_BACKGROUND);
 
-
     const TILE_BORDER_RECT_WIDTH = 2 * TILE_BORDER_WIDTH + TILE_WIDTH;
     
     for (grid, 0..) |tile, i| {
         if (tile == 0 or tile == animating_tile) { continue; }
 
-        //        const tile_color = tile_to_color(tile);
+        // const tile_color = tile_to_color(tile);
         const rect = grid_tile_rectangles[i];
         const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
 
@@ -616,12 +614,12 @@ fn draw_texture( rect : Rectangle, top_left_texture_coord : Vec2, bottom_right_t
     const tbottom = brtc[1];
 
     // Compute nodes we will push to the GPU.
-    const v0 = textureVertex(xleft, ytop, sleft, ttop);
-    const v1 = textureVertex(xright, ytop, sright, ttop);
-    const v2 = textureVertex(xleft,  ybottom, sleft, tbottom);
+    const v0 = textureVertex(xleft, ytop, sleft, tbottom);
+    const v1 = textureVertex(xright, ytop, sright, tbottom);
+    const v2 = textureVertex(xleft,  ybottom, sleft, ttop);
     const v3 = v1;
     const v4 = v2;
-    const v5 = textureVertex(xright, ybottom, sright, tbottom);
+    const v5 = textureVertex(xright, ybottom, sright, ttop);
 
     // Set the texture_buffer with the data.
     const buffer = &texture_vertex_buffer;
@@ -799,10 +797,10 @@ fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
     return secs_diff;
 }
 
-fn tile_to_color(tile : u8) Color {
-    const coord = gridCoord(tile % GRID_DIMENSION, tile / GRID_DIMENSION);
-    return Color{20 + 40 * coord.x, 90, 30 + 30 * coord.y, 255};
-}
+// fn tile_to_color(tile : u8) Color {
+//     const coord = gridCoord(tile % GRID_DIMENSION, tile / GRID_DIMENSION);
+//     return Color{20 + 40 * coord.x, 90, 30 + 30 * coord.y, 255};
+// }
 
 // Random shuffle via Fisher-Yates and a Xorshift PRNG.
 
