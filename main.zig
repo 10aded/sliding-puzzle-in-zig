@@ -117,7 +117,11 @@ var texture_shader    : ShaderProgram = undefined;
 var blue_marble_texture : Texture = undefined;
 
 // Grid structure.
+// Note: If the GRID_DIMENSION is set to 2, some shuffles
+// will result in an impossible puzzle!
 const GRID_DIMENSION = 4;
+
+
 const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
 
 // Grid is per row, left to right, top to bottom.
@@ -520,8 +524,21 @@ fn draw_grid_geometry() void {
 
         draw_color_rectangle(tile_border_rect, colors.TILE_BORDER);
 
-        // TODO... actually calculate the tl / br coords!
-        draw_texture(rect, .{0,1}, .{1,0});
+
+        // Calculate the texture tl of the tile.
+        const tilex : f32 = @floatFromInt(tile % GRID_DIMENSION);
+        const tiley : f32 = @floatFromInt(tile / GRID_DIMENSION);
+        
+        const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + tilex * (TILE_WIDTH + TILE_SPACING);
+        const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + tiley * (TILE_WIDTH + TILE_SPACING);
+
+        const tl_s = tl_x / INNER_GRID_WIDTH;
+        const tl_t = tl_y / INNER_GRID_WIDTH;
+
+        const br_s = (tl_x + TILE_WIDTH) / INNER_GRID_WIDTH;
+        const br_t = (tl_y + TILE_WIDTH) / INNER_GRID_WIDTH;
+
+        draw_texture(rect, .{tl_s, tl_t}, .{br_s, br_t});
     }
 
     // Draw the animating tile (if non-zero).
@@ -549,7 +566,22 @@ fn draw_grid_geometry() void {
         const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.w, final_tile_rect.h);
         const animating_tile_border_rect = rectangle(animating_tile_rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
         draw_color_rectangle(animating_tile_border_rect, colors.TILE_BORDER);
-        draw_texture(animating_tile_rect, .{0,1}, .{1,0});
+
+        // @copypasta from above!
+        // Calculate the texture tl of the tile. 
+        const tilex : f32 = @floatFromInt(animating_tile % GRID_DIMENSION);
+        const tiley : f32 = @floatFromInt(animating_tile / GRID_DIMENSION);
+        
+        const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + tilex * (TILE_WIDTH + TILE_SPACING);
+        const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + tiley * (TILE_WIDTH + TILE_SPACING);
+
+        const tl_s = tl_x / INNER_GRID_WIDTH;
+        const tl_t = tl_y / INNER_GRID_WIDTH;
+
+        const br_s = (tl_x + TILE_WIDTH) / INNER_GRID_WIDTH;
+        const br_t = (tl_y + TILE_WIDTH) / INNER_GRID_WIDTH;
+        
+        draw_texture(animating_tile_rect, .{tl_s, tl_t}, .{br_s, br_t});
     }
 }
 
@@ -614,12 +646,12 @@ fn draw_texture( rect : Rectangle, top_left_texture_coord : Vec2, bottom_right_t
     const tbottom = brtc[1];
 
     // Compute nodes we will push to the GPU.
-    const v0 = textureVertex(xleft, ytop, sleft, tbottom);
-    const v1 = textureVertex(xright, ytop, sright, tbottom);
-    const v2 = textureVertex(xleft,  ybottom, sleft, ttop);
+    const v0 = textureVertex(xleft, ytop, sleft, ttop);
+    const v1 = textureVertex(xright, ytop, sright, ttop);
+    const v2 = textureVertex(xleft,  ybottom, sleft, tbottom);
     const v3 = v1;
     const v4 = v2;
-    const v5 = textureVertex(xright, ybottom, sright, ttop);
+    const v5 = textureVertex(xright, ybottom, sright, tbottom);
 
     // Set the texture_buffer with the data.
     const buffer = &texture_vertex_buffer;
