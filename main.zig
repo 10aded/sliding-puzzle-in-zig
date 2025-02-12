@@ -1,4 +1,29 @@
-// TODO... add in a header for this project!
+// This is a simple sliding puzzle game. Solving the game
+// should only take a couple of minutes.
+//
+// Created by 10aded Feb 2025 --- ? 
+//
+// The project is built with the command:
+//
+//     zig build -Doptimize=ReleaseFast
+//
+// run in the top directory of the project.
+//
+// Building the project requires the compiler version to be 0.14.0-dev.3020+c104e8644 at minimum.
+// 
+// The entire source code of this project is available on GitHub at:
+//
+// https://github.com/10aded/sliding-puzzle-in-zig
+//
+// and was developed (almost) entirely on the Twitch channel 10aded. Copies of the
+// stream are available on YouTube at the @10aded channel.
+//
+// This project includes a copies of the Zig gamedev libraries zglfw and zopengl;
+// both are available on GitHub at:
+//
+//    https://github.com/zig-gamedev
+//
+// Both libraries have MIT licenses; see the pages above for full details.
 
 const std = @import("std");
 const glfw = @import("zglfw");
