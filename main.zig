@@ -57,7 +57,7 @@ const fragment_texture = @embedFile("./Shaders/fragment-texture.glsl");
 
 // Constants.
 // Shader
-const BACKGROUND_SHAPE_CHANGE_TIME = 120;
+const BACKGROUND_SHAPE_CHANGE_TIME = 200;
 
 // Grid geometry.
 const TILE_WIDTH : f32  = 100;
@@ -112,7 +112,6 @@ var texture_vbo : VBO = undefined;
 var background_shader : ShaderProgram = undefined;
 var flat_color_shader : ShaderProgram = undefined;
 var texture_shader    : ShaderProgram = undefined;
-
 
 var blue_marble_texture : Texture = undefined;
 

@@ -14,11 +14,15 @@ const float SHAPE_CHANGE_PERIOD = 100.0;
 const vec2 CENTER1 = vec2(0.25, 0.25);
 const vec2 CENTER2 = vec2(0.75, 0.75);
 
+const vec4 SPACE_BLACK = vec4(0.012, 0.012, 0.020, 1.000);
+
 const vec4 WHITE      = vec4(1, 1, 1, 1);
 const vec4 KUSAMA_RED = vec4(0.843, 0.059, 0.102, 1);
 const vec4 BLUE_BLACK = vec4(0.008, 0.02, 0.125, 1);
-
-const vec4 BACKGROUND = BLUE_BLACK;
+const vec4 URANIUM_CAT_GREEN = vec4(0.235, 1.000, 0.286, 1.000);
+  
+//const vec4 BACKGROUND = URANIUM_CAT_GREEN;
+const vec4 BACKGROUND = SPACE_BLACK;
 const vec4 DISK_COLOR = WHITE; 
 
 
