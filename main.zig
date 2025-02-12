@@ -150,16 +150,10 @@ const ColorVertex = extern struct {
     r : f32,
     g : f32,
     b : f32,
-    tx : f32, // @delete when working...
-    ty : f32, // ""
 };
 
-// fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32) ColorVertex{
-//     return ColorVertex{.x = x, .y = y, .r = r, .g = g, .b = b};
-// }
-
-fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32, tx : f32, ty : f32) ColorVertex{
-    return ColorVertex{.x = x, .y = y, .r = r, .g = g, .b = b, .tx = tx, .ty = ty};
+fn colorVertex( x : f32, y : f32, r : f32, g : f32, b : f32) ColorVertex{
+    return ColorVertex{.x = x, .y = y, .r = r, .g = g, .b = b};
 }
 
 const TextureVertex = extern struct {
@@ -433,28 +427,21 @@ fn render() void {
     
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
 
-    // // Draw the grid and tiles.
-    // gl.bindVertexArray(flat_color_vao);
-    // gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
+    // Draw the grid and tile borders.
+    gl.bindVertexArray(flat_color_vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
 
-    // gl.useProgram(flat_color_shader);
-
-    // gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
-
-    // const texture0_location = gl.getUniformLocation(flat_color_shader, "texture0");
-    // gl.uniform1i(texture0_location, 0);
+    gl.useProgram(flat_color_shader);
     
-    // gl.bufferSubData(gl.ARRAY_BUFFER,
-    //                  0,
-    //                  @as(c_int, @intCast(color_vertex_buffer_index)) * 7 * @sizeOf(f32),
-    //                  &color_vertex_buffer[0]);
+    gl.bufferSubData(gl.ARRAY_BUFFER,
+                     0,
+                     @as(c_int, @intCast(color_vertex_buffer_index)) * 5 * @sizeOf(f32),
+                     &color_vertex_buffer[0]);
 
-    // // Draw the triangles.
-    // gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
+    gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
 
     
-    // Draw the grid and tiles.
+    // Draw the tile textures.
     gl.bindVertexArray(texture_vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, texture_vbo);
 
@@ -471,7 +458,6 @@ fn render() void {
                      @as(c_int, @intCast(texture_vertex_buffer_index)) * 4 * @sizeOf(f32),
                      &texture_vertex_buffer[0]);
 
-    // Draw the triangles.
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(texture_vertex_buffer_index)));
     
     window.swapBuffers();
@@ -570,12 +556,12 @@ fn draw_color_rectangle( rect : Rectangle , color : Color) void {
     const b = @as(f32, @floatFromInt(color[2])) / 255;
     
     // Compute nodes we will push to the GPU.
-    const v0 = colorVertex(xleft,  ytop, r, g, b, 0, 1);
-    const v1 = colorVertex(xright, ytop, r, g, b,  1, 1);
-    const v2 = colorVertex(xleft,  ybottom, r, g, b, 0, 0);
+    const v0 = colorVertex(xleft,  ytop, r, g, b);
+    const v1 = colorVertex(xright, ytop, r, g, b);
+    const v2 = colorVertex(xleft,  ybottom, r, g, b);
     const v3 = v1;
     const v4 = v2;
-    const v5 = colorVertex(xright, ybottom, r, g, b, 1, 0);
+    const v5 = colorVertex(xright, ybottom, r, g, b);
 
     // Set the color_buffer with the data.
     const buffer = &color_vertex_buffer;
@@ -742,8 +728,8 @@ fn setup_array_buffers() void {
 
     gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(color_vertex_buffer)), null, gl.DYNAMIC_DRAW);
 
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 7 * @sizeOf(f32), @ptrFromInt(0));
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 7 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
 
