@@ -433,26 +433,46 @@ fn render() void {
     
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
 
-    // Draw the grid and tiles.
-    gl.bindVertexArray(flat_color_vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
+    // // Draw the grid and tiles.
+    // gl.bindVertexArray(flat_color_vao);
+    // gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
 
-    gl.useProgram(flat_color_shader);
+    // gl.useProgram(flat_color_shader);
+
+    // gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
+
+    // const texture0_location = gl.getUniformLocation(flat_color_shader, "texture0");
+    // gl.uniform1i(texture0_location, 0);
+    
+    // gl.bufferSubData(gl.ARRAY_BUFFER,
+    //                  0,
+    //                  @as(c_int, @intCast(color_vertex_buffer_index)) * 7 * @sizeOf(f32),
+    //                  &color_vertex_buffer[0]);
+
+    // // Draw the triangles.
+    // gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
+
+    
+    // Draw the grid and tiles.
+    gl.bindVertexArray(texture_vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, texture_vbo);
+
+    gl.useProgram(texture_shader);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
 
-    const texture0_location = gl.getUniformLocation(flat_color_shader, "texture0");
+    const texture0_location = gl.getUniformLocation(texture_shader, "texture0");
     gl.uniform1i(texture0_location, 0);
     
     gl.bufferSubData(gl.ARRAY_BUFFER,
                      0,
-                     @as(c_int, @intCast(color_vertex_buffer_index)) * 7 * @sizeOf(f32),
-                     &color_vertex_buffer[0]);
+                     @as(c_int, @intCast(texture_vertex_buffer_index)) * 4 * @sizeOf(f32),
+                     &texture_vertex_buffer[0]);
 
     // Draw the triangles.
-    gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(color_vertex_buffer_index)));
-
+    gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(texture_vertex_buffer_index)));
     
     window.swapBuffers();
 }
@@ -619,8 +639,6 @@ fn compile_shaders() ShaderCompileError!void {
     texture_shader    = try compile_shader(vertex_texture, fragment_texture);
 }
 
-
-
 fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
 
     const gl = zopengl.bindings;
@@ -714,8 +732,6 @@ fn setup_array_buffers() void {
 
     gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), @ptrFromInt(0));
     gl.enableVertexAttribArray(0);
-
-
     
     // Set up flat_color VAO / VBO.
     gl.genVertexArrays(1, &flat_color_vao);
@@ -731,7 +747,20 @@ fn setup_array_buffers() void {
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
 
-    // Add in texture.
+    // Set up texture VAO / VBO.
+    gl.genVertexArrays(1, &texture_vao);
+    gl.bindVertexArray(texture_vao);
+
+    gl.genBuffers(1, &texture_vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, texture_vbo);    
+
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(texture_vertex_buffer)), null, gl.DYNAMIC_DRAW);
+
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), @ptrFromInt(0));
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+    gl.enableVertexAttribArray(0);
+    gl.enableVertexAttribArray(1);
+    
     gl.genTextures(1, &blue_marble_texture);
     gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
 
@@ -744,14 +773,6 @@ fn setup_array_buffers() void {
     const texture_width  : i32 = @intCast(blue_marble_width);
     const texture_height : i32 = @intCast(blue_marble_height);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texture_width, texture_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &blue_marble_pixel_bytes[0]);
-
-    // @temp!!!
-    // For now, add in the texture info as a third attribute.
-    gl.vertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 7 * @sizeOf(f32), @ptrFromInt(5 * @sizeOf(f32)));
-    gl.enableVertexAttribArray(2);
-    
-
-    
 }
 
 fn find_tile_index( wanted_tile : u8) ?usize {
