@@ -30,7 +30,6 @@ const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
 
 const qoi    = @import("qoi.zig");
-const colors = @import("colors.zig");
 
 const PI    = std.math.pi;
 const DEBUG = "DEBUG: ";
@@ -53,6 +52,16 @@ const vertex_color_texture = @embedFile("./Shaders/vertex-color-texture.glsl");
 const fragment_color_texture = @embedFile("./Shaders/fragment-color-texture.glsl");
 
 // Constants.
+// Colors
+const DARKGRAY2  =Color{ 34,  36,  38, 255};
+const GRID_BLUE = Color{0x3e, 0x48, 0x5f, 255};
+const WHITE      =Color{255, 255, 255, 255};
+
+const DEBUG_COLOR = Color{255, 0, 255, 255};
+const BACKGROUND  = DARKGRAY2;
+const TILE_BORDER = GRID_BLUE;
+const GRID_BACKGROUND = WHITE;
+
 // Shader
 const BACKGROUND_SHAPE_CHANGE_TIME = 200;
 
@@ -74,8 +83,6 @@ const VAO           = c_uint;
 const VBO           = c_uint;
 const Texture       = c_uint;
 const ShaderProgram = c_uint;
-
-const DEBUG_COLOR = colors.DEBUG;
 
 const GridCoord = struct {
     x : u8,
@@ -475,7 +482,7 @@ fn compute_grid_geometry() void {
     }
 
     // Draw the grid background.
-    draw_color_texture_rectangle(grid_rectangle, colors.GRID_BACKGROUND, .{0, 0}, .{1, 1}, lambda);
+    draw_color_texture_rectangle(grid_rectangle, GRID_BACKGROUND, .{0, 0}, .{1, 1}, lambda);
 
     const TILE_BORDER_RECT_WIDTH = 2 * TILE_BORDER_WIDTH + TILE_WIDTH;
 
@@ -509,8 +516,8 @@ fn compute_grid_geometry() void {
         const br_inner_st = br_inner / splat3;
         const br_outer_st = br_outer / splat3;
         
-        draw_color_texture_rectangle(tile_border_rect, colors.TILE_BORDER, tl_outer_st, br_outer_st, lambda);
-        draw_color_texture_rectangle(rect, colors.DEBUG, tl_inner_st, br_inner_st, 1);
+        draw_color_texture_rectangle(tile_border_rect, TILE_BORDER, tl_outer_st, br_outer_st, lambda);
+        draw_color_texture_rectangle(rect, DEBUG_COLOR, tl_inner_st, br_inner_st, 1);
     }
 
     // Draw the animating tile (if non-zero).
@@ -538,7 +545,7 @@ fn compute_grid_geometry() void {
         const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.w, final_tile_rect.h);
         const animating_tile_border_rect = rectangle(animating_tile_rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
 
-        draw_color_texture_rectangle(animating_tile_border_rect, colors.TILE_BORDER, .{0, 0}, .{1, 1}, lambda);
+        draw_color_texture_rectangle(animating_tile_border_rect, TILE_BORDER, .{0, 0}, .{1, 1}, lambda);
 
         // @copypasta from above!
         // Calculate the texture tl of the tile. 
@@ -554,7 +561,7 @@ fn compute_grid_geometry() void {
         const br_s = (tl_x + TILE_WIDTH) / GRID_WIDTH;
         const br_t = (tl_y + TILE_WIDTH) / GRID_WIDTH;
         
-        draw_color_texture_rectangle(animating_tile_rect, colors.DEBUG, .{tl_s, tl_t}, .{br_s, br_t}, 1);
+        draw_color_texture_rectangle(animating_tile_rect, DEBUG_COLOR, .{tl_s, tl_t}, .{br_s, br_t}, 1);
     }
 }
 
