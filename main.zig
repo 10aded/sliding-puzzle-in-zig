@@ -1,3 +1,8 @@
+// TODO:
+// MAKE SURE THE SHUFFLES ARE SUCH THAT THE GRID IS POSSIBLE TO SOLVE!!!!
+// Half the the positions of the n x n puzzle will be impossible to solve,
+// per Wikipedia.
+//
 // This is a simple sliding puzzle game. Solving the game
 // should only take a couple of minutes.
 //
@@ -37,6 +42,9 @@ const DEBUG = "DEBUG: ";
 const dprint  = std.debug.print;
 const dassert = std.debug.assert;
 
+
+const GRID_DIMENSION = 3;
+
 // Images
 const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
 const blue_marble_header = qoi.comptime_header_parser(blue_marble_qoi);
@@ -44,7 +52,7 @@ const blue_marble_width  = blue_marble_header.image_width;
 const blue_marble_height = blue_marble_header.image_height;
 var blue_marble_pixel_bytes : [blue_marble_width * blue_marble_height] Color = undefined;
 
-// Shaders
+ // Shaders
 const vertex_background = @embedFile("./Shaders/vertex-background.glsl");
 const fragment_background = @embedFile("./Shaders/fragment-background.glsl");
 
@@ -122,8 +130,6 @@ var blue_marble_texture : Texture = undefined;
 // Grid structure.
 // Note: If the GRID_DIMENSION is set to 2, some shuffles
 // will result in an impossible puzzle!2
-
-const GRID_DIMENSION = 4;
 
 const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
 
