@@ -48,8 +48,6 @@ var blue_marble_pixel_bytes : [blue_marble_width * blue_marble_height] Color = u
 // Shaders
 const vertex_background = @embedFile("./Shaders/vertex-background.glsl");
 const fragment_background = @embedFile("./Shaders/fragment-background.glsl");
-// const vertex_flat_color = @embedFile("./Shaders/vertex-flat-color.glsl");
-// const fragment_flat_color = @embedFile("./Shaders/fragment-flat-color.glsl");
 
 const vertex_color_texture = @embedFile("./Shaders/vertex-color-texture.glsl");
 const fragment_color_texture = @embedFile("./Shaders/fragment-color-texture.glsl");
@@ -142,15 +140,20 @@ var global_prng : XorShiftPRNG = undefined;
 // Timing
 // Note: Timestamps are in nanoseconds.
 var stopwatch : std.time.Timer = undefined;
+
 var program_start_timestamp : u64 = undefined;
 var frame_timestamp : u64 = undefined;
+var won_timestamp   : u64 = undefined;
 
 // Animation
 const ANIMATION_SLIDING_TILE_TIME : f32 = 0.15;
+const ANIMATION_WON_TIME          : f32 = 3;
+
 var animating_tile : u8 = 0;
 var animation_direction : GridMovementDirection = undefined;
 var animation_start_timestamp : u64 = undefined;
-var animation_fraction : f32 = 0;
+var animation_tile_fraction : f32 = 0;
+var animation_won_fraction  : f32 = 0;
 
 // Keyboard
 const KeyState = packed struct (u8) {
@@ -324,9 +327,9 @@ fn update_state() void {
     if (secs_since_animation_start > ANIMATION_SLIDING_TILE_TIME) {
         animation_direction = .NONE;
         animating_tile = 0;
-        animation_fraction = 0;
+        animation_tile_fraction = 0;
     } else {
-        animation_fraction = secs_since_animation_start / ANIMATION_SLIDING_TILE_TIME;
+        animation_tile_fraction = secs_since_animation_start / ANIMATION_SLIDING_TILE_TIME;
     }
     
     // Calculate the new grid configuration (if it changes).
@@ -373,18 +376,25 @@ fn update_state() void {
 
     debug_print_grid();
 
-    // Check if the puzzle is solved.
-    is_won = @reduce(.And, grid == std.simd.iota(u8, TILE_NUMBER));
-
-    // if (is_won) {
-    //     dprint("Game won!!!\n", .{}); //@debug
-    // }
+    // Check if the puzzle is solved if, not already won.
+    if (! is_won ) {
+        is_won = @reduce(.And, grid == std.simd.iota(u8, TILE_NUMBER));
+        if (is_won) {
+            won_timestamp = frame_timestamp;
+        }
+    }
 }
 
 fn render() void {
 
     defer vertex_buffer_index = 0;
 
+    // Calculate the animation_won_fraction.
+    if (is_won) {
+        const secs_since_won = timestamp_delta_to_seconds(frame_timestamp, won_timestamp);
+        animation_won_fraction = std.math.clamp(secs_since_won, 0, ANIMATION_WON_TIME) / ANIMATION_WON_TIME;
+    }
+    
     draw_grid_geometry();
     
     const gl = zopengl.bindings;
@@ -401,10 +411,11 @@ fn render() void {
     const program_secs : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
     const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHAPE_CHANGE_TIME);
 
-    // TODO: Make the radius go to zero when the puzzle is solved.
-    //    const radius_value : f32 = 0.08095238;
-    const radius_value : f32 = 0.028571486;
-    
+    const radius_value : f32 = 0.028571486 * switch(is_won) {
+        false => 1,
+        true  => 1 - animation_won_fraction,
+    };
+
     // Set uniforms.
     const lp_shader_location     = gl.getUniformLocation(background_shader, "lp");
     const radius_shader_location = gl.getUniformLocation(background_shader, "radius");
@@ -441,8 +452,7 @@ fn render() void {
 
 fn draw_grid_geometry() void {
 
-    const program_secs : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
-    const lambda = 0.5 + 0.5 * @sin(program_secs);
+    const lambda = animation_won_fraction;
         
     // Compute the tile rectangles.
     const grid_rectangle = rectangle(CENTER, GRID_WIDTH, GRID_WIDTH);
@@ -503,7 +513,7 @@ fn draw_grid_geometry() void {
         const ANIMATION_DISTANCE = TILE_WIDTH + 2 * TILE_BORDER_WIDTH + TILE_SPACING;
         const AD = ANIMATION_DISTANCE;
         
-        const animation_splat : Vec2 = @splat(1 - animation_fraction);
+        const animation_splat : Vec2 = @splat(1 - animation_tile_fraction);
         const animation_offset_vec : Vec2 = switch(animation_direction) {
             .NONE => unreachable,
             .UP   => .{0, AD},
