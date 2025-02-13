@@ -68,8 +68,6 @@ const GRID_BORDER_WIDTH = 0.10 * TILE_WIDTH;
 const CENTER : Vec2 = .{500, 500};
 
 const INNER_GRID_WIDTH = GRID_DIMENSION * TILE_WIDTH + (GRID_DIMENSION + 1) * TILE_SPACING + 2 * GRID_DIMENSION * TILE_BORDER_WIDTH;
-const OUTER_GRID_WIDTH = INNER_GRID_WIDTH + 2 * GRID_BORDER_WIDTH;
-
 
 // Type aliases.
 const Vec2  = @Vector(2, f32);
@@ -94,6 +92,9 @@ fn gridCoord(x : u8, y : u8) GridCoord {
 // Errors
 const ShaderCompileError = error{ VertexShaderCompFail, FragmentShaderCompFail, ShaderLinkFail };
 
+// Globals.
+// Game
+var is_won = false;
 
 // Window
 var window : *glfw.Window = undefined;
@@ -118,7 +119,8 @@ var blue_marble_texture : Texture = undefined;
 // Grid structure.
 // Note: If the GRID_DIMENSION is set to 2, some shuffles
 // will result in an impossible puzzle!
-const GRID_DIMENSION = 4;
+
+const GRID_DIMENSION = 2;
 
 
 const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
@@ -256,6 +258,11 @@ fn init_grid() void {
    // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
     grid = std.simd.iota(u8, TILE_NUMBER);
     grid = fisher_yates(TILE_NUMBER, grid);
+
+
+
+    // @TEMP!!!
+    grid = .{1, 0, 2, 3};
 }
 
 fn decompress_qoi_images() void {
@@ -356,57 +363,42 @@ fn update_state() void {
     // 1 2                1 0
     // 3 0    -- DOWN --> 3 2
 
-    // TODO: Factor this switch !!!
-    
-    blk: {
-        switch(tile_movement_direction) {
-            .NONE  => { return; },
-            .UP    => {
-                if (empty_tile_pos.y == GRID_DIMENSION - 1) {
-                    animating_tile = 0;
-                    break :blk;
-                }
-                const swap_tile_index = empty_tile_index + GRID_DIMENSION;
-                grid[empty_tile_index] = grid[swap_tile_index];
-                grid[swap_tile_index] = 0;
-                animating_tile = grid[empty_tile_index];
-                animation_direction = .UP;
-            },
-            .LEFT  => {
-                if (empty_tile_pos.x == GRID_DIMENSION - 1) {
-                    animating_tile = 0;
-                    break :blk;
-                }
-                const swap_tile_index = empty_tile_index + 1;
-                grid[empty_tile_index] = grid[swap_tile_index];
-                grid[swap_tile_index] = 0;
-                animating_tile = grid[empty_tile_index];
-                animation_direction = .LEFT;
-            },
-            .DOWN  => {
-                if (empty_tile_pos.y == 0) {
-                    animating_tile = 0;
-                    break :blk;
-                }
-                const swap_tile_index = empty_tile_index - GRID_DIMENSION;
-                grid[empty_tile_index] = grid[swap_tile_index];
-                grid[swap_tile_index] = 0;
-                animating_tile = grid[empty_tile_index];
-                animation_direction = .DOWN;
-            },
-            .RIGHT => {
-                if (empty_tile_pos.x == 0) {
-                    animating_tile = 0;
-                    break :blk;
-                }
-                const swap_tile_index = empty_tile_index - 1;
-                grid[empty_tile_index] = grid[swap_tile_index];
-                grid[swap_tile_index] = 0;
-                animating_tile = grid[empty_tile_index];
-                animation_direction = .RIGHT;
-            },
-        }
+    // Determine if the grid needs to be updated.
+    const no_grid_update : bool = switch(tile_movement_direction) {
+        .NONE  => return,
+        .UP    => empty_tile_pos.y == GRID_DIMENSION - 1,
+        .LEFT  => empty_tile_pos.x == GRID_DIMENSION - 1,
+        .DOWN  => empty_tile_pos.y == 0,
+        .RIGHT => empty_tile_pos.x == 0,
+    };
+
+    if (no_grid_update) {
+        animating_tile = 0;
+        return;
     }
+
+    // Update the grid.
+    const swap_tile_index : usize = switch(tile_movement_direction) {
+        .NONE => unreachable,
+        .UP   => empty_tile_index + GRID_DIMENSION,
+        .LEFT => empty_tile_index + 1,
+        .DOWN => empty_tile_index - GRID_DIMENSION,
+        .RIGHT => empty_tile_index - 1,
+    };
+
+    grid[empty_tile_index] = grid[swap_tile_index];
+    grid[swap_tile_index] = 0;
+    animating_tile = grid[empty_tile_index];
+    animation_direction = tile_movement_direction;
+
+    debug_print_grid();
+
+    // Check if the puzzle is solved.
+    is_won = @reduce(.And, grid == std.simd.iota(u8, TILE_NUMBER));
+
+    // if (is_won) {
+    //     dprint("Game won!!!\n", .{}); //@debug
+    // }
 }
 
 fn render() void {
@@ -492,7 +484,6 @@ fn render() void {
 
 fn draw_grid_geometry() void {
 
-    const outer_grid_rectangle = rectangle(CENTER, OUTER_GRID_WIDTH, OUTER_GRID_WIDTH);
     const inner_grid_rectangle = rectangle(CENTER, INNER_GRID_WIDTH, INNER_GRID_WIDTH);
 
     var grid_tile_rectangles : [TILE_NUMBER] Rectangle = undefined;
@@ -509,7 +500,6 @@ fn draw_grid_geometry() void {
         }
     }
 
-    draw_color_rectangle(outer_grid_rectangle, colors.GRID_BORDER);
     draw_color_rectangle(inner_grid_rectangle, colors.GRID_BACKGROUND);
 
     const TILE_BORDER_RECT_WIDTH = 2 * TILE_BORDER_WIDTH + TILE_WIDTH;
