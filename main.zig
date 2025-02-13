@@ -348,33 +348,36 @@ fn update_state() void {
 
     // Determine if the grid needs to be updated.
     const no_grid_update : bool = switch(tile_movement_direction) {
-        .NONE  => return,
+        .NONE  => true,
         .UP    => empty_tile_pos.y == GRID_DIMENSION - 1,
         .LEFT  => empty_tile_pos.x == GRID_DIMENSION - 1,
         .DOWN  => empty_tile_pos.y == 0,
         .RIGHT => empty_tile_pos.x == 0,
     };
 
-    if (no_grid_update) {
+    // Cancel any existing animation if a movement key was pressed
+    // but the grid cannot be updated.
+    if (no_grid_update and tile_movement_direction != .NONE) {
         animating_tile = 0;
-        return;
     }
 
     // Update the grid.
-    const swap_tile_index : usize = switch(tile_movement_direction) {
-        .NONE => unreachable,
-        .UP   => empty_tile_index + GRID_DIMENSION,
-        .LEFT => empty_tile_index + 1,
-        .DOWN => empty_tile_index - GRID_DIMENSION,
-        .RIGHT => empty_tile_index - 1,
-    };
+    if (! no_grid_update) {
+        const swap_tile_index : usize = switch(tile_movement_direction) {
+            .NONE => unreachable,
+            .UP   => empty_tile_index + GRID_DIMENSION,
+            .LEFT => empty_tile_index + 1,
+            .DOWN => empty_tile_index - GRID_DIMENSION,
+            .RIGHT => empty_tile_index - 1,
+        };
 
-    grid[empty_tile_index] = grid[swap_tile_index];
-    grid[swap_tile_index] = 0;
-    animating_tile = grid[empty_tile_index];
-    animation_direction = tile_movement_direction;
+        grid[empty_tile_index] = grid[swap_tile_index];
+        grid[swap_tile_index] = 0;
+        animating_tile = grid[empty_tile_index];
+        animation_direction = tile_movement_direction;
 
-    debug_print_grid();
+        //    debug_print_grid();
+    }
 
     // Check if the puzzle is solved if, not already won.
     if (! is_won ) {
@@ -383,18 +386,18 @@ fn update_state() void {
             won_timestamp = frame_timestamp;
         }
     }
-}
-
-fn render() void {
-
-    defer vertex_buffer_index = 0;
 
     // Calculate the animation_won_fraction.
     if (is_won) {
         const secs_since_won = timestamp_delta_to_seconds(frame_timestamp, won_timestamp);
         animation_won_fraction = std.math.clamp(secs_since_won, 0, ANIMATION_WON_TIME) / ANIMATION_WON_TIME;
     }
-    
+}
+
+fn render() void {
+
+    defer vertex_buffer_index = 0;
+
     draw_grid_geometry();
     
     const gl = zopengl.bindings;
