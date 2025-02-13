@@ -430,7 +430,7 @@ fn render() void {
     // Push the data.
     gl.bufferSubData(gl.ARRAY_BUFFER,
                      0,
-                     @as(c_int, @intCast(vertex_buffer_index)) * 4 * @sizeOf(f32),
+                     @as(c_int, @intCast(vertex_buffer_index)) * 8 * @sizeOf(f32),
                      &vertex_buffer[0]);
 
     // Draw the grid and tile triangles.
@@ -746,10 +746,10 @@ fn setup_array_buffers() void {
 
     gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(vertex_buffer)), null, gl.DYNAMIC_DRAW);
 
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), @ptrFromInt(0));
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
-    gl.vertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), @ptrFromInt(5 * @sizeOf(f32)));
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, 4 * @sizeOf(f32), @ptrFromInt(7 * @sizeOf(f32)));
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(0));
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+    gl.vertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(5 * @sizeOf(f32)));
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(7 * @sizeOf(f32)));
     
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
