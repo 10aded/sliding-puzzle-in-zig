@@ -11,9 +11,12 @@ const DARKGRAY2  =Color{ 34,  36,  38, 255};
 
 const MAGENTA   = Color{255,   0, 255, 255};
 
+        
+const GRID_BLUE = Color{0x3e, 0x48, 0x5f, 255};
+
 pub const DEBUG = MAGENTA;
 pub const BACKGROUND  = DARKGRAY2;
 pub const GRID_BORDER = BLACK; //DEBUG;
-pub const TILE_BORDER = DARKGRAY1;
+pub const TILE_BORDER = GRID_BLUE;
 //pub const GRID_BACKGROUND = LBLUE2;
 pub const GRID_BACKGROUND = WHITE;

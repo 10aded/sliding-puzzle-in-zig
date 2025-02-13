@@ -114,9 +114,9 @@ var blue_marble_texture : Texture = undefined;
 
 // Grid structure.
 // Note: If the GRID_DIMENSION is set to 2, some shuffles
-// will result in an impossible puzzle!
+// will result in an impossible puzzle!2
 
-const GRID_DIMENSION = 2;
+const GRID_DIMENSION = 4;
 
 const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
 
@@ -251,7 +251,7 @@ fn init_grid() void {
     grid = fisher_yates(TILE_NUMBER, grid);
 
     // @TEMP!!!
-    grid = .{1, 0, 2, 3};
+    //    grid = .{1, 0, 2, 3};
 }
 
 fn decompress_qoi_images() void {
@@ -486,22 +486,31 @@ fn compute_grid_geometry() void {
         const rect = grid_tile_rectangles[i];
         const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
 
-        draw_color_texture_rectangle(tile_border_rect, colors.TILE_BORDER, .{0, 0}, .{1, 1}, lambda);
-
-        // Calculate the texture tl of the tile.
+        // Calculate the texture tl of the tile (that is, the thing inside the border).
         const tilex : f32 = @floatFromInt(tile % GRID_DIMENSION);
         const tiley : f32 = @floatFromInt(tile / GRID_DIMENSION);
         
-        const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + tilex * (TILE_WIDTH + TILE_SPACING);
-        const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + tiley * (TILE_WIDTH + TILE_SPACING);
+        const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + (tilex + 1 ) * TILE_SPACING + tilex * TILE_WIDTH;
+        const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + (tiley + 1 ) * TILE_SPACING + tiley * TILE_WIDTH;
 
-        const tl_s = tl_x / GRID_WIDTH;
-        const tl_t = tl_y / GRID_WIDTH;
+        const splat1 : Vec2 = @splat(TILE_BORDER_WIDTH);
+        const splat2 : Vec2 = @splat(TILE_WIDTH);
+        const splat3 : Vec2 = @splat(GRID_WIDTH);
 
-        const br_s = (tl_x + TILE_WIDTH) / GRID_WIDTH;
-        const br_t = (tl_y + TILE_WIDTH) / GRID_WIDTH;
+        const tl_inner : Vec2 = .{tl_x, tl_y};
+        const tl_outer = tl_inner - splat1;
 
-        draw_color_texture_rectangle(rect, colors.DEBUG, .{tl_s, tl_t}, .{br_s, br_t}, 1);
+        const br_inner = tl_inner + splat2;
+        const br_outer = br_inner + splat1;
+
+        const tl_inner_st = tl_inner / splat3;
+        const tl_outer_st = tl_outer / splat3;
+        
+        const br_inner_st = br_inner / splat3;
+        const br_outer_st = br_outer / splat3;
+        
+        draw_color_texture_rectangle(tile_border_rect, colors.TILE_BORDER, tl_outer_st, br_outer_st, lambda);
+        draw_color_texture_rectangle(rect, colors.DEBUG, tl_inner_st, br_inner_st, 1);
     }
 
     // Draw the animating tile (if non-zero).
