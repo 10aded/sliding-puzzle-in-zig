@@ -233,6 +233,8 @@ pub fn main() void {
 
         update_state();
 
+        compute_grid_geometry();
+        
         render();
     }
 
@@ -362,7 +364,7 @@ fn update_state() void {
     }
 
     // Update the grid.
-    if (! no_grid_update) {
+    if (! no_grid_update and ! is_won) {
         const swap_tile_index : usize = switch(tile_movement_direction) {
             .NONE => unreachable,
             .UP   => empty_tile_index + GRID_DIMENSION,
@@ -398,8 +400,6 @@ fn render() void {
 
     defer vertex_buffer_index = 0;
 
-    draw_grid_geometry();
-    
     const gl = zopengl.bindings;
 
     gl.clearColor(0.2, 0.2, 0.2, 1);
@@ -453,7 +453,7 @@ fn render() void {
     window.swapBuffers();
 }
 
-fn draw_grid_geometry() void {
+fn compute_grid_geometry() void {
 
     const lambda = animation_won_fraction;
         
