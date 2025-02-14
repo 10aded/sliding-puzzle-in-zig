@@ -1,7 +1,4 @@
 # Simple Sliding Puzzle
-
-PROJECT CURRENTLY IN DEVELOPMENT
-
 This is a simple puzzle game where the aim is to slide pieces to make an image out of tiles.
 
 Sliding puzzles are a common type of grid puzzle; information about them can be found on [Wikipedia](https://en.wikipedia.org/wiki/Sliding_puzzle).
