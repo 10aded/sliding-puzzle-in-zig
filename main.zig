@@ -1,8 +1,3 @@
-// TODO:
-// MAKE SURE THE SHUFFLES ARE SUCH THAT THE GRID IS POSSIBLE TO SOLVE!!!!
-// Half the the positions of the n x n puzzle will be impossible to solve,
-// per Wikipedia.
-//
 // This is a simple sliding puzzle game. Solving the game
 // should only take a couple of minutes.
 //
@@ -43,14 +38,21 @@ const dprint  = std.debug.print;
 const dassert = std.debug.assert;
 
 
-const GRID_DIMENSION = 2;
+const GRID_DIMENSION = 4;
 
 // Images
 const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
+const quote_qoi       = @embedFile("./Assets/quote.qoi");
+
 const blue_marble_header = qoi.comptime_header_parser(blue_marble_qoi);
 const blue_marble_width  = blue_marble_header.image_width;
 const blue_marble_height = blue_marble_header.image_height;
 var blue_marble_pixel_bytes : [blue_marble_width * blue_marble_height] Color = undefined;
+
+const quote_header = qoi.comptime_header_parser(quote_qoi);
+const quote_width  = quote_header.image_width;
+const quote_height = quote_header.image_height;
+var quote_pixel_bytes : [quote_width * quote_height] Color = undefined;
 
  // Shaders
 const vertex_background = @embedFile("./Shaders/vertex-background.glsl");
@@ -61,9 +63,10 @@ const fragment_color_texture = @embedFile("./Shaders/fragment-color-texture.glsl
 
 // Constants.
 // Colors
-const DARKGRAY2  =Color{ 34,  36,  38, 255};
-const GRID_BLUE = Color{0x3e, 0x48, 0x5f, 255};
-const WHITE      =Color{255, 255, 255, 255};
+const DARKGRAY2   = Color{ 34,  36,  38, 255};
+const GRID_BLUE   = Color{0x3e, 0x48, 0x5f, 255};
+const WHITE       = Color{255, 255, 255, 255};
+const SPACE_BLACK = Color{0x03, 0x03, 0x05, 255};
 
 const DEBUG_COLOR = Color{255, 0, 255, 255};
 const BACKGROUND  = DARKGRAY2;
@@ -115,9 +118,6 @@ var window : *glfw.Window = undefined;
 var background_vao : VAO = undefined;
 var background_vbo : VBO = undefined;
 
-// var flat_color_vao : VAO = undefined;
-// var flat_color_vbo : VBO = undefined;
-
 var color_texture_vao : VAO = undefined;
 var color_texture_vbo : VBO = undefined;
 
@@ -126,6 +126,7 @@ var background_shader    : ShaderProgram = undefined;
 var color_texture_shader : ShaderProgram = undefined;
 
 var blue_marble_texture : Texture = undefined;
+var quote_texture       : Texture = undefined;
 
 // Grid structure.
 // Note: If the GRID_DIMENSION is set to 2, some shuffles
@@ -272,36 +273,37 @@ fn init_grid() void {
     // As such we apply a SMALL number of pre-generated shuffles that
     // make the grid appear "randomly" shuffled.
     
-    // grid = std.simd.iota(u8, TILE_NUMBER);
+    grid = std.simd.iota(u8, TILE_NUMBER);
 
-    // // Some "recorded" sequences of moves that "sufficently" shuffle the tiles.
+    // Some "recorded" sequences of moves that "sufficently" shuffle the tiles.
     
-    // const random_shuffle_1 = [_] u8 {2, 1, 4, 1, 2, 3, 2, 1, 4, 1, 2, 3, 4, 2, 2, 1, 4, 4, 3, 2, 3, 2, 1, 4, 3, 3, 4, 1, 1, 1, 4, 3, 2, 2, 3, 4, 1, 2, 1, 4, 3, 2, 3, 4, 3, 2, 1, 2, 3, 4, 4, 1, 1, 4, 3, 2, 1, 3, 1, 4, 1, 2, 2, 2, 3, 4, 4, 3, 2, 1, 4, 4, 3, 2, 2, 2, 3, 4, 1, 1, 4, 3, 3, 4, 1, 1, 2, 2, 3, 4, 1, 4, 1, 2, 2, 3, 4, 3, 2, 1, 2, 1, 4, 3, 3, 4, 3, 2, 2, 1, 4, 3, 4, 4, 2, 2, 1, 1, 2, 1, 4, 4, 3, 3, 2, 1, 4, 3, 2, 1, 4, 3, 4, 3, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4, 1, 1, 4, 3, 2, 3, 4};
+    const random_shuffle_1 = [_] u8 {2, 1, 4, 1, 2, 3, 2, 1, 4, 1, 2, 3, 4, 2, 2, 1, 4, 4, 3, 2, 3, 2, 1, 4, 3, 3, 4, 1, 1, 1, 4, 3, 2, 2, 3, 4, 1, 2, 1, 4, 3, 2, 3, 4, 3, 2, 1, 2, 3, 4, 4, 1, 1, 4, 3, 2, 1, 3, 1, 4, 1, 2, 2, 2, 3, 4, 4, 3, 2, 1, 4, 4, 3, 2, 2, 2, 3, 4, 1, 1, 4, 3, 3, 4, 1, 1, 2, 2, 3, 4, 1, 4, 1, 2, 2, 3, 4, 3, 2, 1, 2, 1, 4, 3, 3, 4, 3, 2, 2, 1, 4, 3, 4, 4, 2, 2, 1, 1, 2, 1, 4, 4, 3, 3, 2, 1, 4, 3, 2, 1, 4, 3, 4, 3, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4, 1, 1, 4, 3, 2, 3, 4};
 
-    // const random_shuffle_2 = [_] u8 {2, 2, 1, 4, 4, 2, 1, 1, 2, 3, 4, 3, 2, 2, 4, 3, 4, 1, 1, 1, 4, 3, 3, 2, 1, 4, 3, 2, 2, 1, 4, 3, 2, 2, 1, 4, 1, 2, 3, 4, 4, 1, 3, 3, 2, 1, 4, 3, 3, 2, 1, 4, 3, 4, 1, 1, 2, 1, 2, 3, 4, 3, 2, 2, 3, 4, 1, 1, 4, 2, 1, 2, 3, 4, 4, 3, 4, 1, 3, 2, 3, 4, 1, 1, 2, 1, 4, 3, 2, 2, 3, 4, 1, 2, 3, 2, 1, 4, 3, 3, 4, 4, 1, 1, 1, 2, 3, 4, 2, 2, 3, 4, 1, 2, 3, 4, 4, 3, 2, 2, 2, 1, 1, 1, 4, 3, 3, 2, 3, 4, 1, 2, 1, 4, 1, 2, 3, 4, 4, 3, 4, 3};
+    const random_shuffle_2 = [_] u8 {2, 2, 1, 4, 4, 2, 1, 1, 2, 3, 4, 3, 2, 2, 4, 3, 4, 1, 1, 1, 4, 3, 3, 2, 1, 4, 3, 2, 2, 1, 4, 3, 2, 2, 1, 4, 1, 2, 3, 4, 4, 1, 3, 3, 2, 1, 4, 3, 3, 2, 1, 4, 3, 4, 1, 1, 2, 1, 2, 3, 4, 3, 2, 2, 3, 4, 1, 1, 4, 2, 1, 2, 3, 4, 4, 3, 4, 1, 3, 2, 3, 4, 1, 1, 2, 1, 4, 3, 2, 2, 3, 4, 1, 2, 3, 2, 1, 4, 3, 3, 4, 4, 1, 1, 1, 2, 3, 4, 2, 2, 3, 4, 1, 2, 3, 4, 4, 3, 2, 2, 2, 1, 1, 1, 4, 3, 3, 2, 3, 4, 1, 2, 1, 4, 1, 2, 3, 4, 4, 3, 4, 3};
 
-    // const random_shuffles = [2] [] const u8 {random_shuffle_1[0..], random_shuffle_2[0..]};
-    // // Apply these each a couple of times, randomly.
+    const random_shuffles = [2] [] const u8 {random_shuffle_1[0..], random_shuffle_2[0..]};
+    // Apply these each a couple of times, randomly.
     
-    // const NUMBER_OF_RANDOM_SHUFFLES = 100;
+    const NUMBER_OF_RANDOM_SHUFFLES = 100;
     
-    // var shuffle_index : usize = 0;
-    // while (shuffle_index < NUMBER_OF_RANDOM_SHUFFLES) : (shuffle_index += 1) {
-    //     const rint = get_randomish_byte_up_to(2);
-    //     const rshuffle = random_shuffles[rint];
+    var shuffle_index : usize = 0;
+    while (shuffle_index < NUMBER_OF_RANDOM_SHUFFLES) : (shuffle_index += 1) {
+        const rint = get_randomish_byte_up_to(2);
+        const rshuffle = random_shuffles[rint];
 
-    //     for (rshuffle) |dir| {
-    //         const rdirection : GridMovementDirection = @enumFromInt(dir);
-    //         try_grid_update(rdirection);
-    //     }
-    // }
+        for (rshuffle) |dir| {
+            const rdirection : GridMovementDirection = @enumFromInt(dir);
+            try_grid_update(rdirection);
+        }
+    }
 
     // @TEMP!!!
-     grid = .{1, 0, 2, 3};
+//     grid = .{1, 0, 2, 3};
 }
 
 fn decompress_qoi_images() void {
     qoi.qoi_to_pixels(blue_marble_qoi, blue_marble_width * blue_marble_height, &blue_marble_pixel_bytes);
+    qoi.qoi_to_pixels(quote_qoi, quote_width * quote_height, &quote_pixel_bytes);
 }
 
 fn init_opengl() void {
@@ -396,7 +398,6 @@ fn update_state() void {
 
     // Check if the puzzle is solved if, not already won.
     if (! is_won ) {
-        // @temp!!!
         is_won = @reduce(.And, grid == std.simd.iota(u8, TILE_NUMBER));
         if (is_won) {
             won_timestamp = frame_timestamp;
@@ -463,6 +464,28 @@ fn render() void {
 
     // Draw the grid and tile triangles.
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(vertex_buffer_index)));
+
+    // Reset the vertex_buffer.
+    vertex_buffer_index = 0;
+    
+    // Draw the quote.
+    gl.bindTexture(gl.TEXTURE_2D, quote_texture);
+
+    const quote_width_f32  : f32 = @floatFromInt(quote_width);
+    const quote_height_f32 : f32 = @floatFromInt(quote_height);
+    const quote_rectangle = rectangle(.{550,875}, quote_width_f32, quote_height_f32);
+
+    // @temp: change 1 to animation
+    draw_color_texture_rectangle(quote_rectangle, SPACE_BLACK, .{0,0}, .{1, 1}, 1);
+
+    // Push the data.
+    gl.bufferSubData(gl.ARRAY_BUFFER,
+                     0,
+                     @as(c_int, @intCast(vertex_buffer_index)) * 8 * @sizeOf(f32),
+                     &vertex_buffer[0]);
+
+    // Draw the quote.
+    gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(vertex_buffer_index)));    
     
     window.swapBuffers();
 }
@@ -759,20 +782,6 @@ fn setup_array_buffers() void {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), @ptrFromInt(0));
     gl.enableVertexAttribArray(0);
     
-    // // Set up flat_color VAO / VBO.
-    // gl.genVertexArrays(1, &flat_color_vao);
-    // gl.bindVertexArray(flat_color_vao);
-
-    // gl.genBuffers(1, &flat_color_vbo);
-    // gl.bindBuffer(gl.ARRAY_BUFFER, flat_color_vbo);
-
-    // gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(color_vertex_buffer)), null, gl.DYNAMIC_DRAW);
-
-    // gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
-    // gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
-    // gl.enableVertexAttribArray(0);
-    // gl.enableVertexAttribArray(1);
-
     // Set up color_texture VAO / VBO.
     gl.genVertexArrays(1, &color_texture_vao);
     gl.bindVertexArray(color_texture_vao);
@@ -792,6 +801,7 @@ fn setup_array_buffers() void {
     gl.enableVertexAttribArray(2);
     gl.enableVertexAttribArray(3);
     
+    // Setup blue_marble texture.
     gl.genTextures(1, &blue_marble_texture);
     gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
 
@@ -801,9 +811,23 @@ fn setup_array_buffers() void {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     // Note: The width and height have type "GLsizei"... i.e. a i32.
-    const texture_width  : i32 = @intCast(blue_marble_width);
-    const texture_height : i32 = @intCast(blue_marble_height);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texture_width, texture_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &blue_marble_pixel_bytes[0]);
+    const bm_width  : i32 = @intCast(blue_marble_width);
+    const bm_height : i32 = @intCast(blue_marble_height);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bm_width, bm_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &blue_marble_pixel_bytes[0]);
+
+    // Set up quote texture.
+    gl.genTextures(1, &quote_texture);
+    gl.bindTexture(gl.TEXTURE_2D, quote_texture);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    // Note: The width and height have type "GLsizei"... i.e. a i32.
+    const q_width  : i32 = @intCast(quote_width);
+    const q_height : i32 = @intCast(quote_height);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, q_width, q_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &quote_pixel_bytes[0]);
 }
 
 fn find_tile_index( wanted_tile : u8) ?usize {
