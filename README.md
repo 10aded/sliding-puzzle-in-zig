@@ -6,7 +6,7 @@ This is a simple puzzle game where the aim is to slide pieces to make an image o
 
 Sliding puzzles are a common type of grid puzzle; information about them can be found on [Wikipedia](https://en.wikipedia.org/wiki/Sliding_puzzle).
 
-![Screenshot](screenshot.png "An screenshot of the in-development game.")
+![Screenshot](preview.gif "An small animation showing the game in action; tiles of an photo of the Earth slide around.")
 
 ## Gameplay
 
