@@ -1,7 +1,7 @@
 // This is a simple sliding puzzle game. Solving the game
 // should only take a couple of minutes.
 //
-// Created by 10aded Feb 2025 --- ? 
+// Created by 10aded throughout Feb 2025. 
 //
 // The project is built with the command:
 //
@@ -25,24 +25,36 @@
 //
 // Both libraries have MIT licenses; see the pages above for full details.
 
+// Standard Library.
 const std = @import("std");
-const glfw = @import("zglfw");
+
+// Zig Gamedev libraries.
+const glfw    = @import("zglfw");
 const zopengl = @import("zopengl");
 
-const qoi    = @import("qoi.zig");
+// Our own QOI image parsing library.
+const qoi     = @import("qoi.zig");
 
+// std aliases.
 const PI    = std.math.pi;
-const DEBUG = "DEBUG: ";
-
 const dprint  = std.debug.print;
-const dassert = std.debug.assert;
 
 
-const GRID_DIMENSION = 4;
+// The size of the puzzle grid.
+const GRID_DIMENSION = 3;
+
+// Note: The game can be (unexpectedly) very difficult when
+// GRID_DIMENSION >= 4.
 
 // Images
 const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
-const quote_qoi       = @embedFile("./Assets/quote.qoi");
+// "The Blue Marble" is in the public domain and available from:
+// https://commons.wikimedia.org/wiki/File:The_Earth_seen_from_Apollo_17.jpg
+
+const quote_qoi = @embedFile("./Assets/quote.qoi");
+// The quote is from the blog "The Techno-Optimist Manifesto" by
+// Andrew Kelley and is available at:
+// https://andrewkelley.me/post/the-techno-optimist-manifesto.html
 
 const blue_marble_header = qoi.comptime_header_parser(blue_marble_qoi);
 const blue_marble_width  = blue_marble_header.image_width;
@@ -162,12 +174,15 @@ var won_timestamp   : u64 = undefined;
 // Animation
 const ANIMATION_SLIDING_TILE_TIME : f32 = 0.15;
 const ANIMATION_WON_TIME          : f32 = 3;
+const ANIMATION_QUOTE_TIME        : f32 = 3;
 
 var animating_tile : u8 = 0;
 var animation_direction : GridMovementDirection = undefined;
 var animation_start_timestamp : u64 = undefined;
-var animation_tile_fraction : f32 = 0;
-var animation_won_fraction  : f32 = 0;
+
+var animation_tile_fraction  : f32 = 0;
+var animation_won_fraction   : f32 = 0;
+var animation_quote_fraction : f32 = 0;
 
 // Keyboard
 const KeyState = packed struct (u8) {
@@ -200,11 +215,6 @@ const ColorTextureVertex = extern struct {
 fn colorTextureVertex( x : f32, y : f32, r : f32, g : f32, b :f32, tx : f32, ty : f32, l : f32) ColorTextureVertex {
     return ColorTextureVertex{.x = x, .y = y, .r = r, .g = g, .b = b, .tx = tx, .ty = ty, .l = l};
 }
-
-// TODO:
-// This game is a rare instance where the number of triangles drawn
-// each frame is the same, so we can specify the number of them precisely.
-// ... update 1000 to three times this number!
 
 var vertex_buffer : [1000] ColorTextureVertex = undefined;
 var vertex_buffer_index : usize = 0;
@@ -296,9 +306,6 @@ fn init_grid() void {
             try_grid_update(rdirection);
         }
     }
-
-    // @TEMP!!!
-//     grid = .{1, 0, 2, 3};
 }
 
 fn decompress_qoi_images() void {
@@ -407,7 +414,9 @@ fn update_state() void {
     // Calculate the animation_won_fraction.
     if (is_won) {
         const secs_since_won = timestamp_delta_to_seconds(frame_timestamp, won_timestamp);
-        animation_won_fraction = std.math.clamp(secs_since_won, 0, ANIMATION_WON_TIME) / ANIMATION_WON_TIME;
+
+        animation_won_fraction   = std.math.clamp(secs_since_won, 0, ANIMATION_WON_TIME) / ANIMATION_WON_TIME;
+        animation_quote_fraction = std.math.clamp(secs_since_won - ANIMATION_WON_TIME + 1, 0, ANIMATION_QUOTE_TIME) / ANIMATION_QUOTE_TIME;
     }
 }
 
@@ -429,7 +438,8 @@ fn render() void {
     const program_secs : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
     const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHAPE_CHANGE_TIME);
 
-    const radius_value : f32 = 0.028571486 * switch(is_won) {
+    //    const radius_value : f32 = 0.028571486 * switch(is_won) {
+    const radius_value : f32 = 0.018571486 * switch(is_won) {
         false => 1,
         true  => 1 - animation_won_fraction,
     };
@@ -473,10 +483,10 @@ fn render() void {
 
     const quote_width_f32  : f32 = @floatFromInt(quote_width);
     const quote_height_f32 : f32 = @floatFromInt(quote_height);
-    const quote_rectangle = rectangle(.{550,875}, quote_width_f32, quote_height_f32);
+    const quote_pos : Vec2 = .{550, 825};
+    const quote_rectangle = rectangle(quote_pos, quote_width_f32, quote_height_f32);
 
-    // @temp: change 1 to animation
-    draw_color_texture_rectangle(quote_rectangle, SPACE_BLACK, .{0,0}, .{1, 1}, 1);
+    draw_color_texture_rectangle(quote_rectangle, SPACE_BLACK, .{0,0}, .{1, 1}, animation_quote_fraction);
 
     // Push the data.
     gl.bufferSubData(gl.ARRAY_BUFFER,
@@ -595,17 +605,6 @@ fn compute_grid_geometry() void {
     }
 }
 
-// fn debug_print_grid() void {
-//     for (0..GRID_DIMENSION) |i| {
-//         for (0..GRID_DIMENSION) |j| {
-//             const index = i * GRID_DIMENSION + j;
-//             dprint("{: >4}", .{grid[index]});
-//         }
-//         dprint("\n", .{});
-//     }
-//     dprint("\n", .{});
-// }
-
 fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_texture_coord : Vec2, bottom_right_texture_coord : Vec2, lambda : f32 ) void {
 
     const tltc = top_left_texture_coord;
@@ -723,7 +722,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
         dprint("{s}\n", .{log_bytes});
         return ShaderCompileError.VertexShaderCompFail;
     } else {
-        dprint("DEBUG: vertex shader {} compilation: success\n", .{vSID}); //@debug
+        dprint("DEBUG: vertex shader {} compilation: success\n", .{vSID});
     }
 
     if (fragment_success != gl.TRUE) {
@@ -731,7 +730,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
         dprint("{s}\n", .{log_bytes});
         return ShaderCompileError.FragmentShaderCompFail;
     } else {
-        dprint("DEBUG: fragment shader {} compilation: success\n", .{fSID}); //@debug
+        dprint("DEBUG: fragment shader {} compilation: success\n", .{fSID});
     }
 
 	// Attempt to link shaders.
@@ -749,7 +748,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
         dprint("{s}\n", .{log_bytes});
         return ShaderCompileError.ShaderLinkFail;
 	} else {
-        dprint("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID}); //@debug
+        dprint("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID});
     	gl.deleteShader(vSID);
 		gl.deleteShader(fSID);
     }
@@ -845,35 +844,6 @@ fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
     const secs_diff = nano_diff / 1_000_000_000;
     return secs_diff;
 }
-
-
-// // Random shuffle via Fisher-Yates and a Xorshift PRNG.
-
-// // General idea: construct list2 by picking with uniformly
-// // random distribution items from list1, and then removing them.
-// //
-// // NOTE: (Obvious) Picking uniformly randomly from the ordered set
-// // {1, 2, 3, 4, 5} is the same as picking uniformly from
-// // {5, 4, 3, 2, 1} ... or any other permutation.
-// // As such, the algorithm can be condensed into a single list
-// // by swapping.
-
-// fn fisher_yates(comptime N : u8, original_list : [N] u8) [N] u8 {
-//     var list = original_list;
-//     for (0..N) |i| {
-//         // Pick an random index from 0..N-i;
-//         const ii : u8 = @intCast(i);
-//         const back_index   = N - 1 - ii;
-//         const random_index = get_randomish_byte_up_to(N - ii);
-
-//         // Perform the swap.
-//         const random_element = list[random_index];
-//         const back_element   = list[back_index];
-//         list[back_index]     = random_element;
-//         list[random_index]   = back_element;
-//     }
-//     return list;
-// }
 
 fn get_randomish_byte( prng : *XorShiftPRNG) u8 {
     // Pick a byte near the 'middle'.

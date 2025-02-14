@@ -6,9 +6,9 @@ uniform float lp;
 uniform float radius; // Should be around 0.08095238.
 
 //const int reps = 10;
-const int reps = 4;
+const int reps = 2;
 
-const float SMOOTHSTEP_WIDTH = 0.015;
+const float SMOOTHSTEP_WIDTH = 0.010;
 const float SHAPE_CHANGE_PERIOD = 100.0;
 
 const vec2 CENTER1 = vec2(0.25, 0.25);
