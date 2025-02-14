@@ -43,7 +43,7 @@ const dprint  = std.debug.print;
 const dassert = std.debug.assert;
 
 
-const GRID_DIMENSION = 3;
+const GRID_DIMENSION = 2;
 
 // Images
 const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
@@ -145,7 +145,7 @@ const GridMovementDirection = enum (u8) {
     RIGHT,
 };
 
-var tile_movement_direction : GridMovementDirection = .NONE;
+var current_tile_movement_direction : GridMovementDirection = .NONE;
 
 // Random number generator
 var global_prng : XorShiftPRNG = undefined;
@@ -258,13 +258,46 @@ fn init_grid() void {
     // Initialize PRNG.
     const seed : u64 = program_start_timestamp;
     global_prng = initialize_xorshiftprng(seed);
- 
-   // Generate a random shuffle of the integers 0..TILE_NUMBER - 1;
-    grid = std.simd.iota(u8, TILE_NUMBER);
-    grid = fisher_yates(TILE_NUMBER, grid);
+
+    // NOTE: Initializing the grid with a random shuffle will produce
+    // a puzzle that is IMPOSSIBLE to solve 50% of the time. (This
+    // fact is left as a highly recommended exercise to the reader.)
+    //
+    // Additionally, from a starting solved state randomly applying grid
+    // moves will not in general make a grid that's "sufficently" shuffled.
+    // See, for example:
+    //
+    //     https://en.wikipedia.org/wiki/Random_walk#Lattice_random_walk
+    //
+    // As such we apply a SMALL number of pre-generated shuffles that
+    // make the grid appear "randomly" shuffled.
+    
+    // grid = std.simd.iota(u8, TILE_NUMBER);
+
+    // // Some "recorded" sequences of moves that "sufficently" shuffle the tiles.
+    
+    // const random_shuffle_1 = [_] u8 {2, 1, 4, 1, 2, 3, 2, 1, 4, 1, 2, 3, 4, 2, 2, 1, 4, 4, 3, 2, 3, 2, 1, 4, 3, 3, 4, 1, 1, 1, 4, 3, 2, 2, 3, 4, 1, 2, 1, 4, 3, 2, 3, 4, 3, 2, 1, 2, 3, 4, 4, 1, 1, 4, 3, 2, 1, 3, 1, 4, 1, 2, 2, 2, 3, 4, 4, 3, 2, 1, 4, 4, 3, 2, 2, 2, 3, 4, 1, 1, 4, 3, 3, 4, 1, 1, 2, 2, 3, 4, 1, 4, 1, 2, 2, 3, 4, 3, 2, 1, 2, 1, 4, 3, 3, 4, 3, 2, 2, 1, 4, 3, 4, 4, 2, 2, 1, 1, 2, 1, 4, 4, 3, 3, 2, 1, 4, 3, 2, 1, 4, 3, 4, 3, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4, 1, 1, 4, 3, 2, 3, 4};
+
+    // const random_shuffle_2 = [_] u8 {2, 2, 1, 4, 4, 2, 1, 1, 2, 3, 4, 3, 2, 2, 4, 3, 4, 1, 1, 1, 4, 3, 3, 2, 1, 4, 3, 2, 2, 1, 4, 3, 2, 2, 1, 4, 1, 2, 3, 4, 4, 1, 3, 3, 2, 1, 4, 3, 3, 2, 1, 4, 3, 4, 1, 1, 2, 1, 2, 3, 4, 3, 2, 2, 3, 4, 1, 1, 4, 2, 1, 2, 3, 4, 4, 3, 4, 1, 3, 2, 3, 4, 1, 1, 2, 1, 4, 3, 2, 2, 3, 4, 1, 2, 3, 2, 1, 4, 3, 3, 4, 4, 1, 1, 1, 2, 3, 4, 2, 2, 3, 4, 1, 2, 3, 4, 4, 3, 2, 2, 2, 1, 1, 1, 4, 3, 3, 2, 3, 4, 1, 2, 1, 4, 1, 2, 3, 4, 4, 3, 4, 3};
+
+    // const random_shuffles = [2] [] const u8 {random_shuffle_1[0..], random_shuffle_2[0..]};
+    // // Apply these each a couple of times, randomly.
+    
+    // const NUMBER_OF_RANDOM_SHUFFLES = 100;
+    
+    // var shuffle_index : usize = 0;
+    // while (shuffle_index < NUMBER_OF_RANDOM_SHUFFLES) : (shuffle_index += 1) {
+    //     const rint = get_randomish_byte_up_to(2);
+    //     const rshuffle = random_shuffles[rint];
+
+    //     for (rshuffle) |dir| {
+    //         const rdirection : GridMovementDirection = @enumFromInt(dir);
+    //         try_grid_update(rdirection);
+    //     }
+    // }
 
     // @TEMP!!!
-    //    grid = .{1, 0, 2, 3};
+     grid = .{1, 0, 2, 3};
 }
 
 fn decompress_qoi_images() void {
@@ -324,13 +357,13 @@ fn process_input() void {
 fn update_state() void {
 
     // Reset tile movement.
-    tile_movement_direction = .NONE;
+    current_tile_movement_direction = .NONE;
     
     // Determine if a tile movement attempt has been made. 
-    if (keyPress.w or keyPress.up_arrow)    { tile_movement_direction = .UP; }
-    if (keyPress.a or keyPress.left_arrow)  { tile_movement_direction = .LEFT; }
-    if (keyPress.s or keyPress.down_arrow)  { tile_movement_direction = .DOWN; }
-    if (keyPress.d or keyPress.right_arrow) { tile_movement_direction = .RIGHT; }
+    if (keyPress.w or keyPress.up_arrow)    { current_tile_movement_direction = .UP; }
+    if (keyPress.a or keyPress.left_arrow)  { current_tile_movement_direction = .LEFT; }
+    if (keyPress.s or keyPress.down_arrow)  { current_tile_movement_direction = .DOWN; }
+    if (keyPress.d or keyPress.right_arrow) { current_tile_movement_direction = .RIGHT; }
 
     // Reset animation if key press.
     if (@as(u8, @bitCast(keyPress)) != 0) {
@@ -348,54 +381,22 @@ fn update_state() void {
     }
     
     // Calculate the new grid configuration (if it changes).
-
-    // Find empty tile.
-    const empty_tile_index_tilde = find_tile_index(0);
-    const empty_tile_index : u8 = @intCast(empty_tile_index_tilde.?);
-
-    const empty_tile_pos : GridCoord = gridCoord(empty_tile_index % GRID_DIMENSION, empty_tile_index / GRID_DIMENSION);
-
+    //
+    // E.g.
+    //
     // 0 1   -- LEFT --> 1 0
     // 2 3               2 3
 
     // 1 2                1 0
     // 3 0    -- DOWN --> 3 2
 
-    // Determine if the grid needs to be updated.
-    const no_grid_update : bool = switch(tile_movement_direction) {
-        .NONE  => true,
-        .UP    => empty_tile_pos.y == GRID_DIMENSION - 1,
-        .LEFT  => empty_tile_pos.x == GRID_DIMENSION - 1,
-        .DOWN  => empty_tile_pos.y == 0,
-        .RIGHT => empty_tile_pos.x == 0,
-    };
-
-    // Cancel any existing animation if a movement key was pressed
-    // but the grid cannot be updated.
-    if (no_grid_update and tile_movement_direction != .NONE) {
-        animating_tile = 0;
-    }
-
-    // Update the grid.
-    if (! no_grid_update and ! is_won) {
-        const swap_tile_index : usize = switch(tile_movement_direction) {
-            .NONE => unreachable,
-            .UP   => empty_tile_index + GRID_DIMENSION,
-            .LEFT => empty_tile_index + 1,
-            .DOWN => empty_tile_index - GRID_DIMENSION,
-            .RIGHT => empty_tile_index - 1,
-        };
-
-        grid[empty_tile_index] = grid[swap_tile_index];
-        grid[swap_tile_index] = 0;
-        animating_tile = grid[empty_tile_index];
-        animation_direction = tile_movement_direction;
-
-        //    debug_print_grid();
-    }
+    
+    // Try a move!
+    try_grid_update(current_tile_movement_direction);
 
     // Check if the puzzle is solved if, not already won.
     if (! is_won ) {
+        // @temp!!!
         is_won = @reduce(.And, grid == std.simd.iota(u8, TILE_NUMBER));
         if (is_won) {
             won_timestamp = frame_timestamp;
@@ -571,16 +572,16 @@ fn compute_grid_geometry() void {
     }
 }
 
-fn debug_print_grid() void {
-    for (0..GRID_DIMENSION) |i| {
-        for (0..GRID_DIMENSION) |j| {
-            const index = i * GRID_DIMENSION + j;
-            dprint("{: >4}", .{grid[index]});
-        }
-        dprint("\n", .{});
-    }
-    dprint("\n", .{});
-}
+// fn debug_print_grid() void {
+//     for (0..GRID_DIMENSION) |i| {
+//         for (0..GRID_DIMENSION) |j| {
+//             const index = i * GRID_DIMENSION + j;
+//             dprint("{: >4}", .{grid[index]});
+//         }
+//         dprint("\n", .{});
+//     }
+//     dprint("\n", .{});
+// }
 
 fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_texture_coord : Vec2, bottom_right_texture_coord : Vec2, lambda : f32 ) void {
 
@@ -822,33 +823,33 @@ fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
 }
 
 
-// Random shuffle via Fisher-Yates and a Xorshift PRNG.
+// // Random shuffle via Fisher-Yates and a Xorshift PRNG.
 
-// General idea: construct list2 by picking with uniformly
-// random distribution items from list1, and then removing them.
-//
-// NOTE: (Obvious) Picking uniformly randomly from the ordered set
-// {1, 2, 3, 4, 5} is the same as picking uniformly from
-// {5, 4, 3, 2, 1} ... or any other permutation.
-// As such, the algorithm can be condensed into a single list
-// by swapping.
+// // General idea: construct list2 by picking with uniformly
+// // random distribution items from list1, and then removing them.
+// //
+// // NOTE: (Obvious) Picking uniformly randomly from the ordered set
+// // {1, 2, 3, 4, 5} is the same as picking uniformly from
+// // {5, 4, 3, 2, 1} ... or any other permutation.
+// // As such, the algorithm can be condensed into a single list
+// // by swapping.
 
-fn fisher_yates(comptime N : u8, original_list : [N] u8) [N] u8 {
-    var list = original_list;
-    for (0..N) |i| {
-        // Pick an random index from 0..N-i;
-        const ii : u8 = @intCast(i);
-        const back_index   = N - 1 - ii;
-        const random_index = get_randomish_byte_up_to(N - ii);
+// fn fisher_yates(comptime N : u8, original_list : [N] u8) [N] u8 {
+//     var list = original_list;
+//     for (0..N) |i| {
+//         // Pick an random index from 0..N-i;
+//         const ii : u8 = @intCast(i);
+//         const back_index   = N - 1 - ii;
+//         const random_index = get_randomish_byte_up_to(N - ii);
 
-        // Perform the swap.
-        const random_element = list[random_index];
-        const back_element   = list[back_index];
-        list[back_index]     = random_element;
-        list[random_index]   = back_element;
-    }
-    return list;
-}
+//         // Perform the swap.
+//         const random_element = list[random_index];
+//         const back_element   = list[back_index];
+//         list[back_index]     = random_element;
+//         list[random_index]   = back_element;
+//     }
+//     return list;
+// }
 
 fn get_randomish_byte( prng : *XorShiftPRNG) u8 {
     // Pick a byte near the 'middle'.
@@ -916,3 +917,43 @@ fn initialize_xorshiftprng( seed : u64 ) XorShiftPRNG {
 //                  &texture_vertex_buffer[0]);
 
 // gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(texture_vertex_buffer_index)));
+
+
+fn try_grid_update(tile_movement_direction : GridMovementDirection) void {
+    // Find empty tile.
+    const empty_tile_index_tilde = find_tile_index(0);
+    const empty_tile_index : u8 = @intCast(empty_tile_index_tilde.?);
+
+    const empty_tile_pos : GridCoord = gridCoord(empty_tile_index % GRID_DIMENSION, empty_tile_index / GRID_DIMENSION);
+
+    // Determine if the grid needs to be updated.
+    const no_grid_update : bool = switch(tile_movement_direction) {
+        .NONE  => true,
+        .UP    => empty_tile_pos.y == GRID_DIMENSION - 1,
+        .LEFT  => empty_tile_pos.x == GRID_DIMENSION - 1,
+        .DOWN  => empty_tile_pos.y == 0,
+        .RIGHT => empty_tile_pos.x == 0,
+    };
+
+    // Cancel any existing animation if a movement key was pressed
+    // but the grid cannot be updated.
+    if (no_grid_update and tile_movement_direction != .NONE) {
+        animating_tile = 0;
+    }
+
+    // Update the grid.
+    if (! no_grid_update and ! is_won) {
+        const swap_tile_index : usize = switch(tile_movement_direction) {
+            .NONE => unreachable,
+            .UP   => empty_tile_index + GRID_DIMENSION,
+            .LEFT => empty_tile_index + 1,
+            .DOWN => empty_tile_index - GRID_DIMENSION,
+            .RIGHT => empty_tile_index - 1,
+        };
+
+        grid[empty_tile_index] = grid[swap_tile_index];
+        grid[swap_tile_index] = 0;
+        animating_tile = grid[empty_tile_index];
+        animation_direction = tile_movement_direction;
+    }
+}
