@@ -527,7 +527,7 @@ fn compute_grid_geometry() void {
     const lambda = animation_won_fraction;
         
     // Compute the tile rectangles.
-    const grid_rectangle = rectangle(CENTER, GRID_WIDTH, GRID_WIDTH);
+    const background_grid_rectangle = rectangle(CENTER, GRID_WIDTH, GRID_WIDTH);
 
     var grid_tile_rectangles : [TILE_NUMBER] Rectangle = undefined;
 
@@ -544,10 +544,14 @@ fn compute_grid_geometry() void {
     }
 
     // Draw the grid background.
-    draw_color_texture_rectangle(grid_rectangle, GRID_BACKGROUND, .{0, 0}, .{1, 1}, lambda);
+    draw_color_texture_rectangle(background_grid_rectangle, GRID_BACKGROUND, .{0, 0}, .{1, 1}, lambda);
 
     const TILE_BORDER_RECT_WIDTH = 2 * TILE_BORDER_WIDTH + TILE_WIDTH;
 
+    const tile_border_width_splat : Vec2 = @splat(TILE_BORDER_WIDTH);
+    const tile_width_splat        : Vec2 = @splat(TILE_WIDTH);
+    const grid_width_splat        : Vec2 = @splat(GRID_WIDTH);
+    
     // Draw the tiles.
     for (grid, 0..) |tile, i| {
         if (tile == 0 or tile == animating_tile) { continue; }
@@ -562,24 +566,18 @@ fn compute_grid_geometry() void {
         const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + (tilex + 1 ) * TILE_SPACING + tilex * TILE_WIDTH;
         const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + (tiley + 1 ) * TILE_SPACING + tiley * TILE_WIDTH;
 
-        const splat1 : Vec2 = @splat(TILE_BORDER_WIDTH);
-        const splat2 : Vec2 = @splat(TILE_WIDTH);
-        const splat3 : Vec2 = @splat(GRID_WIDTH);
+        const tl_inner = Vec2{tl_x, tl_y};
+        const tl_outer = tl_inner - tile_border_width_splat;
+        const br_inner = tl_inner + tile_width_splat;
+        const br_outer = br_inner + tile_border_width_splat;
 
-        const tl_inner : Vec2 = .{tl_x, tl_y};
-        const tl_outer = tl_inner - splat1;
-
-        const br_inner = tl_inner + splat2;
-        const br_outer = br_inner + splat1;
-
-        const tl_inner_st = tl_inner / splat3;
-        const tl_outer_st = tl_outer / splat3;
-        
-        const br_inner_st = br_inner / splat3;
-        const br_outer_st = br_outer / splat3;
+        const tl_inner_st = tl_inner / grid_width_splat;
+        const tl_outer_st = tl_outer / grid_width_splat;
+        const br_inner_st = br_inner / grid_width_splat;
+        const br_outer_st = br_outer / grid_width_splat;
         
         draw_color_texture_rectangle(tile_border_rect, TILE_BORDER, tl_outer_st, br_outer_st, lambda);
-        draw_color_texture_rectangle(rect, DEBUG_COLOR, tl_inner_st, br_inner_st, 1);
+        draw_color_texture_rectangle(rect,             DEBUG_COLOR, tl_inner_st, br_inner_st, 1);
     }
 
     // Draw the animating tile (if non-zero).
@@ -604,26 +602,25 @@ fn compute_grid_geometry() void {
         };
         const animating_tile_pos = final_tile_pos + animation_splat * animation_offset_vec;
 
-        const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.width, final_tile_rect.height);
-        const animating_tile_border_rect = rectangle(animating_tile_rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
+        const animating_tile_rect        = rectangle(animating_tile_pos, final_tile_rect.width, final_tile_rect.height);
+        const animating_tile_border_rect = rectangle(animating_tile_pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
 
-        draw_color_texture_rectangle(animating_tile_border_rect, TILE_BORDER, .{0, 0}, .{1, 1}, lambda);
-
-        // @copypasta from above!
-        // Calculate the texture tl of the tile. 
+        // Calculate the texture tl of the tile.
+        // A partial copy from above.
         const tilex : f32 = @floatFromInt(animating_tile % GRID_DIMENSION);
         const tiley : f32 = @floatFromInt(animating_tile / GRID_DIMENSION);
         
         const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + tilex * (TILE_WIDTH + TILE_SPACING);
         const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + tiley * (TILE_WIDTH + TILE_SPACING);
 
-        const tl_s = tl_x / GRID_WIDTH;
-        const tl_t = tl_y / GRID_WIDTH;
-
-        const br_s = (tl_x + TILE_WIDTH) / GRID_WIDTH;
-        const br_t = (tl_y + TILE_WIDTH) / GRID_WIDTH;
+        const tl_inner = Vec2{tl_x, tl_y};
+        const br_inner = tl_inner + tile_width_splat;
         
-        draw_color_texture_rectangle(animating_tile_rect, DEBUG_COLOR, .{tl_s, tl_t}, .{br_s, br_t}, 1);
+        const tl_inner_st    = tl_inner / grid_width_splat;
+        const br_inner_st    = br_inner / grid_width_splat;
+
+        draw_color_texture_rectangle(animating_tile_border_rect, TILE_BORDER, .{0, 0}, .{1, 1}, lambda);
+        draw_color_texture_rectangle(animating_tile_rect,        DEBUG_COLOR, tl_inner_st, br_inner_st, 1);
     }
 }
 
@@ -669,39 +666,6 @@ fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_text
     
     vertex_buffer_index += 6;
 }
-
-// fn draw_texture( rect : Rectangle, top_left_texture_coord : Vec2, bottom_right_texture_coord : Vec2) void {
-//     const tltc = top_left_texture_coord;
-//     const brtc = bottom_right_texture_coord;
-
-//     // Compute the coordinates of the corners of the rectangle.
-//     const xleft   = rect.pos[0] - 0.5 * rect.w;
-//     const xright  = rect.pos[0] + 0.5 * rect.w;
-//     const ytop    = rect.pos[1] - 0.5 * rect.h;
-//     const ybottom = rect.pos[1] + 0.5 * rect.h;
-
-//     // Compute nodes we will push to the GPU.
-//     const v0 = textureVertex(xleft, ytop, sleft, ttop);
-//     const v1 = textureVertex(xright, ytop, sright, ttop);
-//     const v2 = textureVertex(xleft,  ybottom, sleft, tbottom);
-//     const v3 = v1;
-//     const v4 = v2;
-//     const v5 = textureVertex(xright, ybottom, sright, tbottom);
-
-//     // Set the texture_buffer with the data.
-//     const buffer = &texture_vertex_buffer;
-//     const i      = texture_vertex_buffer_index;
-
-//     buffer[i + 0] = v0;
-//     buffer[i + 1] = v1;
-//     buffer[i + 2] = v2;
-//     buffer[i + 3] = v3;
-//     buffer[i + 4] = v4;
-//     buffer[i + 5] = v5;
-    
-//     texture_vertex_buffer_index += 6;
-// }
-
 
 fn compile_shaders() ShaderCompileError!void {
 
