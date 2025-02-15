@@ -1,6 +1,6 @@
 .{
     .name = "sliding-puzzle",
-    .version = "0.0.1",
+    .version = "1.0.0",
     .minimum_zig_version = "0.14.0-dev.3020+c104e8644",
 
     // NOTE: The following dependencies have been copied into
@@ -27,8 +27,14 @@
         },
     },
     .paths = .{
+        "main.zig",
         "build.zig",
         "build.zig.zon",
-        // TODO...
+        "README.md",
+        "LICENCE",
+        "preview.gif",
+        "./Assets",
+        "./Shaders",
+        "./Dependencies"
     },
 }
