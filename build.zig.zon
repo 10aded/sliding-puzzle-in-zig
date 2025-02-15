@@ -16,14 +16,14 @@
         // Downloaded from:
         // https://github.com/zig-gamedev/zglfw
         .zglfw = .{
-               .path = "./deps/zglfw",
+               .path = "./Dependencies/zglfw",
         },
 
         // Downloaded from:
         // https://github.com/zig-gamedev/zopengl
         
         .zopengl = .{
-        .path = "./deps/zopengl",
+        .path = "./Dependencies/zopengl",
         },
     },
     .paths = .{

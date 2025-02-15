@@ -25,7 +25,6 @@ const vec4 URANIUM_CAT_GREEN = vec4(0.235, 1.000, 0.286, 1.000);
 const vec4 BACKGROUND = SPACE_BLACK;
 const vec4 DISK_COLOR = WHITE; 
 
-
 void main(void)
 {
     // JUST USING MAGIC (NUMBER) COORDS FOR THE MOMENT...

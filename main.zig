@@ -1,5 +1,5 @@
 // This is a simple sliding puzzle game. Solving the game
-// should only take a couple of minutes.
+// typically takes less than 10 minutes.
 //
 // Created by 10aded throughout Feb 2025. 
 //
@@ -9,21 +9,25 @@
 //
 // run in the top directory of the project.
 //
-// Building the project requires the compiler version to be 0.14.0-dev.3020+c104e8644 at minimum.
+// Building the project requires the compiler version to be
+// a recent 0.14.0-dev version (such as 0.14.0-dev.3020+c104e8644)
+// at minimum.
 // 
 // The entire source code of this project is available on GitHub at:
 //
 // https://github.com/10aded/sliding-puzzle-in-zig
 //
-// and was developed (almost) entirely on the Twitch channel 10aded. Copies of the
-// stream are available on YouTube at the @10aded channel.
+// and was developed (almost) entirely on the Twitch channel 10aded.
+// Copies of the stream are on YouTube at the @10aded channel.
 //
-// This project includes a copies of the Zig gamedev libraries zglfw and zopengl;
+// This project includes a copies of the Zig gamedev libraries:
+//   * zglfw
+//   * zopengl;
 // both are available on GitHub at:
 //
 //    https://github.com/zig-gamedev
 //
-// Both libraries have MIT licenses; see the pages above for full details.
+// Both libraries have MIT licenses; see the link above for details.
 
 // Standard Library.
 const std = @import("std");
@@ -33,34 +37,41 @@ const glfw    = @import("zglfw");
 const zopengl = @import("zopengl");
 
 // Our own QOI image parsing library.
-const qoi     = @import("qoi.zig");
+const qoi = @import("./Dependencies/qoi.zig");
 
-// std aliases.
-const PI    = std.math.pi;
-const dprint  = std.debug.print;
-
+// Constant aliases.
+const PI = std.math.pi;
 
 // The size of the puzzle grid.
-const GRID_DIMENSION = 3;
+const GRID_DIMENSION = 2;
 
 // Note: The game can be (unexpectedly) very difficult when
 // GRID_DIMENSION >= 4.
 
+// Type aliases.
+const Vec2  = @Vector(2, f32);
+const Color = @Vector(4, u8);
+
+const VAO           = c_uint;
+const VBO           = c_uint;
+const Texture       = c_uint;
+const ShaderProgram = c_uint;
+
 // Images
-const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
-// "The Blue Marble" is in the public domain and available from:
+
+// "The Blue Marble" is a famous photo taken by the Apollo 17 crew,
+// and is in the public domain and available from:
 // https://commons.wikimedia.org/wiki/File:The_Earth_seen_from_Apollo_17.jpg
-
-const quote_qoi = @embedFile("./Assets/quote.qoi");
-// The quote is from the blog "The Techno-Optimist Manifesto" by
-// Andrew Kelley and is available at:
-// https://andrewkelley.me/post/the-techno-optimist-manifesto.html
-
+const blue_marble_qoi = @embedFile("./Assets/blue-marble.qoi");
 const blue_marble_header = qoi.comptime_header_parser(blue_marble_qoi);
 const blue_marble_width  = blue_marble_header.image_width;
 const blue_marble_height = blue_marble_header.image_height;
 var blue_marble_pixel_bytes : [blue_marble_width * blue_marble_height] Color = undefined;
 
+// The quote is from the blog "The Techno-Optimist Manifesto" by
+// Andrew Kelley (published 17 Oct 2023) and is available at:
+// https://andrewkelley.me/post/the-techno-optimist-manifesto.html
+const quote_qoi = @embedFile("./Assets/quote.qoi");
 const quote_header = qoi.comptime_header_parser(quote_qoi);
 const quote_width  = quote_header.image_width;
 const quote_height = quote_header.image_height;
@@ -74,53 +85,39 @@ const vertex_color_texture = @embedFile("./Shaders/vertex-color-texture.glsl");
 const fragment_color_texture = @embedFile("./Shaders/fragment-color-texture.glsl");
 
 // Constants.
+const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
+
 // Colors
-const DARKGRAY2   = Color{ 34,  36,  38, 255};
+const WHITE       = Color{255,   255,  255, 255};
+const MAGENTA     = Color{255,     0,  255, 255};
+const DARKGRAY2   = Color{ 34,    36,   38, 255};
 const GRID_BLUE   = Color{0x3e, 0x48, 0x5f, 255};
-const WHITE       = Color{255, 255, 255, 255};
 const SPACE_BLACK = Color{0x03, 0x03, 0x05, 255};
 
-const DEBUG_COLOR = Color{255, 0, 255, 255};
-const BACKGROUND  = DARKGRAY2;
-const TILE_BORDER = GRID_BLUE;
-const GRID_BACKGROUND = WHITE;
+const DEBUG_COLOR       = MAGENTA;
+const RESIZE_BACKGROUND = DARKGRAY2;
+const GRID_BACKGROUND   = WHITE;
+const TILE_BORDER       = GRID_BLUE;
 
 // Shader
-const BACKGROUND_SHAPE_CHANGE_TIME = 200;
+const BACKGROUND_SHADER_SHAPE_CHANGE_TIME = 200;
 
 // Grid geometry.
+// NOTE: It is assumed that the window dimensions of the game
+// will NOT change.
 const TILE_WIDTH : f32  = 100;
 const TILE_BORDER_WIDTH = 0.05 * TILE_WIDTH;
 const TILE_SPACING      = 0.02 * TILE_WIDTH;
-const GRID_BORDER_WIDTH = 0.10 * TILE_WIDTH;
 
 const CENTER : Vec2 = .{500, 500};
 
 const GRID_WIDTH = GRID_DIMENSION * TILE_WIDTH + (GRID_DIMENSION + 1) * TILE_SPACING + 2 * GRID_DIMENSION * TILE_BORDER_WIDTH;
 
-// Type aliases.
-const Vec2  = @Vector(2, f32);
-const Color = @Vector(4, u8);
-
-const VAO           = c_uint;
-const VBO           = c_uint;
-const Texture       = c_uint;
-const ShaderProgram = c_uint;
-
-const GridCoord = struct {
-    x : u8,
-    y : u8,
-};
-
-fn gridCoord(x : u8, y : u8) GridCoord {
-    return .{.x = x, .y = y};
-}
-
 // Errors
 const ShaderCompileError = error{ VertexShaderCompFail, FragmentShaderCompFail, ShaderLinkFail };
 
-// Globals.
-// Game
+// Globals
+// Game logic.
 var is_won = false;
 
 // Window
@@ -137,16 +134,13 @@ var color_texture_vbo : VBO = undefined;
 var background_shader    : ShaderProgram = undefined;
 var color_texture_shader : ShaderProgram = undefined;
 
-var blue_marble_texture : Texture = undefined;
-var quote_texture       : Texture = undefined;
+// Textures
+var blue_marble_texture  : Texture = undefined;
+var quote_texture        : Texture = undefined;
 
-// Grid structure.
-// Note: If the GRID_DIMENSION is set to 2, some shuffles
-// will result in an impossible puzzle!2
-
-const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
-
-// Grid is per row, left to right, top to bottom.
+// Grid
+// Convention: the left to right array layout represents the grid
+// per row from left to right, top to bottom.
 var grid : [TILE_NUMBER] u8 = undefined;
 
 // Grid movement
@@ -164,12 +158,13 @@ var current_tile_movement_direction : GridMovementDirection = .NONE;
 var global_prng : XorShiftPRNG = undefined;
 
 // Timing
-// Note: Timestamps are in nanoseconds.
 var stopwatch : std.time.Timer = undefined;
 
-var program_start_timestamp : u64 = undefined;
-var frame_timestamp : u64 = undefined;
-var won_timestamp   : u64 = undefined;
+// Note: Timestamps are in nanoseconds.
+var program_start_timestamp   : u64 = undefined;
+var frame_timestamp           : u64 = undefined;
+var animation_start_timestamp : u64 = undefined;
+var won_timestamp             : u64 = undefined;
 
 // Animation
 const ANIMATION_SLIDING_TILE_TIME : f32 = 0.15;
@@ -178,7 +173,6 @@ const ANIMATION_QUOTE_TIME        : f32 = 3;
 
 var animating_tile : u8 = 0;
 var animation_direction : GridMovementDirection = undefined;
-var animation_start_timestamp : u64 = undefined;
 
 var animation_tile_fraction  : f32 = 0;
 var animation_won_fraction   : f32 = 0;
@@ -216,19 +210,23 @@ fn colorTextureVertex( x : f32, y : f32, r : f32, g : f32, b :f32, tx : f32, ty 
     return ColorTextureVertex{.x = x, .y = y, .r = r, .g = g, .b = b, .tx = tx, .ty = ty, .l = l};
 }
 
-var vertex_buffer : [1000] ColorTextureVertex = undefined;
+// Note: The size of the vertex_buffer assumes the game will
+// not have a grid larger than 6 x 6.
+var vertex_buffer : [500] ColorTextureVertex = undefined;
 var vertex_buffer_index : usize = 0;
 
-// Here pos represents the center of the rectangle.
+// The .pos field represents the center of the rectangle.
 const Rectangle = struct {
-    pos : Vec2,
-    w   : f32,
-    h   : f32,
+    pos    : Vec2,
+    width  : f32,
+    height : f32,
 };
 
-fn rectangle(pos : Vec2, w : f32, h : f32) Rectangle {
-    return Rectangle{.pos = pos, .w = w, .h = h};
+fn rectangle(pos : Vec2, width : f32, height : f32) Rectangle {
+    return Rectangle{.pos = pos, .width = width, .height = height};
 }
+
+
 
 pub fn main() void {
     stopwatch = std.time.Timer.start() catch unreachable;
@@ -274,36 +272,36 @@ fn init_grid() void {
     // a puzzle that is IMPOSSIBLE to solve 50% of the time. (This
     // fact is left as a highly recommended exercise to the reader.)
     //
-    // Additionally, from a starting solved state randomly applying grid
-    // moves will not in general make a grid that's "sufficently" shuffled.
-    // See, for example:
+    // Additionally, from a starting solved state randomly applying
+    // grid moves will not in general create a grid that is
+    // "sufficently" shuffled. See, for example:
     //
     //     https://en.wikipedia.org/wiki/Random_walk#Lattice_random_walk
     //
     // As such we apply a SMALL number of pre-generated shuffles that
     // make the grid appear "randomly" shuffled.
-    
+
+    // File the grid with 0, 1, 2, ... , TILE_NUMBER - 1.
     grid = std.simd.iota(u8, TILE_NUMBER);
 
-    // Some "recorded" sequences of moves that "sufficently" shuffle the tiles.
-    
-    const random_shuffle_1 = [_] u8 {2, 1, 4, 1, 2, 3, 2, 1, 4, 1, 2, 3, 4, 2, 2, 1, 4, 4, 3, 2, 3, 2, 1, 4, 3, 3, 4, 1, 1, 1, 4, 3, 2, 2, 3, 4, 1, 2, 1, 4, 3, 2, 3, 4, 3, 2, 1, 2, 3, 4, 4, 1, 1, 4, 3, 2, 1, 3, 1, 4, 1, 2, 2, 2, 3, 4, 4, 3, 2, 1, 4, 4, 3, 2, 2, 2, 3, 4, 1, 1, 4, 3, 3, 4, 1, 1, 2, 2, 3, 4, 1, 4, 1, 2, 2, 3, 4, 3, 2, 1, 2, 1, 4, 3, 3, 4, 3, 2, 2, 1, 4, 3, 4, 4, 2, 2, 1, 1, 2, 1, 4, 4, 3, 3, 2, 1, 4, 3, 2, 1, 4, 3, 4, 3, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4, 1, 1, 4, 3, 2, 3, 4};
+    // Some prerecorded tile shuffles.
+    const shuffle1 = [_] u8 {2, 1, 4, 1, 2, 3, 2, 1, 4, 1, 2, 3, 4, 2, 2, 1, 4, 4, 3, 2, 3, 2, 1, 4, 3, 3, 4, 1, 1, 1, 4, 3, 2, 2, 3, 4, 1, 2, 1, 4, 3, 2, 3, 4, 3, 2, 1, 2, 3, 4, 4, 1, 1, 4, 3, 2, 1, 3, 1, 4, 1, 2, 2, 2, 3, 4, 4, 3, 2, 1, 4, 4, 3, 2, 2, 2, 3, 4, 1, 1, 4, 3, 3, 4, 1, 1, 2, 2, 3, 4, 1, 4, 1, 2, 2, 3, 4, 3, 2, 1, 2, 1, 4, 3, 3, 4, 3, 2, 2, 1, 4, 3, 4, 4, 2, 2, 1, 1, 2, 1, 4, 4, 3, 3, 2, 1, 4, 3, 2, 1, 4, 3, 4, 3, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4, 1, 1, 4, 3, 2, 3, 4};
 
-    const random_shuffle_2 = [_] u8 {2, 2, 1, 4, 4, 2, 1, 1, 2, 3, 4, 3, 2, 2, 4, 3, 4, 1, 1, 1, 4, 3, 3, 2, 1, 4, 3, 2, 2, 1, 4, 3, 2, 2, 1, 4, 1, 2, 3, 4, 4, 1, 3, 3, 2, 1, 4, 3, 3, 2, 1, 4, 3, 4, 1, 1, 2, 1, 2, 3, 4, 3, 2, 2, 3, 4, 1, 1, 4, 2, 1, 2, 3, 4, 4, 3, 4, 1, 3, 2, 3, 4, 1, 1, 2, 1, 4, 3, 2, 2, 3, 4, 1, 2, 3, 2, 1, 4, 3, 3, 4, 4, 1, 1, 1, 2, 3, 4, 2, 2, 3, 4, 1, 2, 3, 4, 4, 3, 2, 2, 2, 1, 1, 1, 4, 3, 3, 2, 3, 4, 1, 2, 1, 4, 1, 2, 3, 4, 4, 3, 4, 3};
+    const shuffle2 = [_] u8 {2, 2, 1, 4, 4, 2, 1, 1, 2, 3, 4, 3, 2, 2, 4, 3, 4, 1, 1, 1, 4, 3, 3, 2, 1, 4, 3, 2, 2, 1, 4, 3, 2, 2, 1, 4, 1, 2, 3, 4, 4, 1, 3, 3, 2, 1, 4, 3, 3, 2, 1, 4, 3, 4, 1, 1, 2, 1, 2, 3, 4, 3, 2, 2, 3, 4, 1, 1, 4, 2, 1, 2, 3, 4, 4, 3, 4, 1, 3, 2, 3, 4, 1, 1, 2, 1, 4, 3, 2, 2, 3, 4, 1, 2, 3, 2, 1, 4, 3, 3, 4, 4, 1, 1, 1, 2, 3, 4, 2, 2, 3, 4, 1, 2, 3, 4, 4, 3, 2, 2, 2, 1, 1, 1, 4, 3, 3, 2, 3, 4, 1, 2, 1, 4, 1, 2, 3, 4, 4, 3, 4, 3};
 
-    const random_shuffles = [2] [] const u8 {random_shuffle_1[0..], random_shuffle_2[0..]};
+    const shuffles = [2] [] const u8 {shuffle1[0..], shuffle2[0..]};
     // Apply these each a couple of times, randomly.
     
-    const NUMBER_OF_RANDOM_SHUFFLES = 100;
+    const NUMBER_OF_SHUFFLES = 10;
     
     var shuffle_index : usize = 0;
-    while (shuffle_index < NUMBER_OF_RANDOM_SHUFFLES) : (shuffle_index += 1) {
-        const rint = get_randomish_byte_up_to(2);
-        const rshuffle = random_shuffles[rint];
+    while (shuffle_index < NUMBER_OF_SHUFFLES) : (shuffle_index += 1) {
+        const random_int = get_randomish_byte_up_to(2);
+        const random_shuffle = shuffles[random_int];
 
-        for (rshuffle) |dir| {
-            const rdirection : GridMovementDirection = @enumFromInt(dir);
-            try_grid_update(rdirection);
+        for (random_shuffle) |dir| {
+            const move_direction : GridMovementDirection = @enumFromInt(dir);
+            try_grid_update(move_direction);
         }
     }
 }
@@ -436,7 +434,7 @@ fn render() void {
 
     // Calculate uniforms.
     const program_secs : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
-    const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHAPE_CHANGE_TIME);
+    const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHADER_SHAPE_CHANGE_TIME);
 
     //    const radius_value : f32 = 0.028571486 * switch(is_won) {
     const radius_value : f32 = 0.018571486 * switch(is_won) {
@@ -582,7 +580,7 @@ fn compute_grid_geometry() void {
         };
         const animating_tile_pos = final_tile_pos + animation_splat * animation_offset_vec;
 
-        const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.w, final_tile_rect.h);
+        const animating_tile_rect = rectangle(animating_tile_pos, final_tile_rect.width, final_tile_rect.height);
         const animating_tile_border_rect = rectangle(animating_tile_rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
 
         draw_color_texture_rectangle(animating_tile_border_rect, TILE_BORDER, .{0, 0}, .{1, 1}, lambda);
@@ -611,10 +609,10 @@ fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_text
     const brtc = bottom_right_texture_coord;
 
     // Compute the coordinates of the corners of the rectangle.
-    const xleft   = rect.pos[0] - 0.5 * rect.w;
-    const xright  = rect.pos[0] + 0.5 * rect.w;
-    const ytop    = rect.pos[1] - 0.5 * rect.h;
-    const ybottom = rect.pos[1] + 0.5 * rect.h;
+    const xleft   = rect.pos[0] - 0.5 * rect.width;
+    const xright  = rect.pos[0] + 0.5 * rect.width;
+    const ytop    = rect.pos[1] - 0.5 * rect.height;
+    const ybottom = rect.pos[1] + 0.5 * rect.height;
 
     const r = @as(f32, @floatFromInt(color[0])) / 255;
     const g = @as(f32, @floatFromInt(color[1])) / 255;
@@ -689,6 +687,8 @@ fn compile_shaders() ShaderCompileError!void {
 
 fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
 
+    const stderr = std.io.getStdErr().writer();
+
     const gl = zopengl.bindings;
     
     const vSID : c_uint = gl.createShader(gl.VERTEX_SHADER);
@@ -719,18 +719,18 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
 
     if (vertex_success != gl.TRUE) {
         gl.getShaderInfoLog(vSID, 512, null, &log_bytes);
-        dprint("{s}\n", .{log_bytes});
+        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
         return ShaderCompileError.VertexShaderCompFail;
     } else {
-        dprint("DEBUG: vertex shader {} compilation: success\n", .{vSID});
+        std.debug.print("DEBUG: vertex shader {} compilation: success\n", .{vSID});
     }
 
     if (fragment_success != gl.TRUE) {
         gl.getShaderInfoLog(fSID, 512, null, &log_bytes);
-        dprint("{s}\n", .{log_bytes});
+        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
         return ShaderCompileError.FragmentShaderCompFail;
     } else {
-        dprint("DEBUG: fragment shader {} compilation: success\n", .{fSID});
+        std.debug.print("DEBUG: fragment shader {} compilation: success\n", .{fSID});
     }
 
 	// Attempt to link shaders.
@@ -745,10 +745,10 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
 
 	if(compile_success != gl.TRUE) {
 		gl.getProgramInfoLog(pID, 512, null, &log_bytes);
-        dprint("{s}\n", .{log_bytes});
+        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
         return ShaderCompileError.ShaderLinkFail;
 	} else {
-        dprint("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID});
+        std.debug.print("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID});
     	gl.deleteShader(vSID);
 		gl.deleteShader(fSID);
     }
@@ -918,15 +918,16 @@ fn try_grid_update(tile_movement_direction : GridMovementDirection) void {
     const empty_tile_index_tilde = find_tile_index(0);
     const empty_tile_index : u8 = @intCast(empty_tile_index_tilde.?);
 
-    const empty_tile_pos : GridCoord = gridCoord(empty_tile_index % GRID_DIMENSION, empty_tile_index / GRID_DIMENSION);
+    const empty_tile_posx = empty_tile_index % GRID_DIMENSION;
+    const empty_tile_posy = empty_tile_index / GRID_DIMENSION;
 
     // Determine if the grid needs to be updated.
     const no_grid_update : bool = switch(tile_movement_direction) {
         .NONE  => true,
-        .UP    => empty_tile_pos.y == GRID_DIMENSION - 1,
-        .LEFT  => empty_tile_pos.x == GRID_DIMENSION - 1,
-        .DOWN  => empty_tile_pos.y == 0,
-        .RIGHT => empty_tile_pos.x == 0,
+        .UP    => empty_tile_posy == GRID_DIMENSION - 1,
+        .LEFT  => empty_tile_posx == GRID_DIMENSION - 1,
+        .DOWN  => empty_tile_posy == 0,
+        .RIGHT => empty_tile_posx == 0,
     };
 
     // Cancel any existing animation if a movement key was pressed
