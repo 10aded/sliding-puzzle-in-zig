@@ -90,12 +90,10 @@ const TILE_NUMBER = GRID_DIMENSION * GRID_DIMENSION;
 // Colors
 const WHITE       = Color{255,   255,  255, 255};
 const MAGENTA     = Color{255,     0,  255, 255};
-const DARKGRAY2   = Color{ 34,    36,   38, 255};
 const GRID_BLUE   = Color{0x3e, 0x48, 0x5f, 255};
 const SPACE_BLACK = Color{0x03, 0x03, 0x05, 255};
 
 const DEBUG_COLOR       = MAGENTA;
-const RESIZE_BACKGROUND = DARKGRAY2;
 const GRID_BACKGROUND   = WHITE;
 const TILE_BORDER       = GRID_BLUE;
 
@@ -444,33 +442,32 @@ fn try_grid_update(tile_movement_direction : GridMovementDirection) void {
 
 fn render() void {
 
-    defer vertex_buffer_index = 0;
-
     const gl = zopengl.bindings;
 
+    // Set the background, which appears during a window resize (which
+    // is assumed NOT to happen) to be a dark gray.
     gl.clearColor(0.2, 0.2, 0.2, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Render the background.
-    gl.bindVertexArray(background_vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
-    gl.useProgram(background_shader);
-
-    // Calculate uniforms.
+    // Calculate background_shader uniforms.
     const program_secs : f32 = timestamp_delta_to_seconds(frame_timestamp, program_start_timestamp);
     const lp_value = 1.5 + 0.5 * @cos(PI * program_secs / BACKGROUND_SHADER_SHAPE_CHANGE_TIME);
 
-    //    const radius_value : f32 = 0.028571486 * switch(is_won) {
     const radius_value : f32 = 0.018571486 * switch(is_won) {
         false => 1,
         true  => 1 - animation_won_fraction,
     };
 
+    // Render the background pattern.
+    gl.bindVertexArray(background_vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
+    gl.useProgram(background_shader);
+
     // Set uniforms.
     const lp_shader_location     = gl.getUniformLocation(background_shader, "lp");
     const radius_shader_location = gl.getUniformLocation(background_shader, "radius");
         
-    gl.uniform1f(lp_shader_location,   lp_value);
+    gl.uniform1f(lp_shader_location,     lp_value);
     gl.uniform1f(radius_shader_location, radius_value);
 
     // Draw background triangles.
@@ -479,30 +476,31 @@ fn render() void {
     // Render the grid and tiles.
     gl.bindVertexArray(color_texture_vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, color_texture_vbo);
-
     gl.useProgram(color_texture_shader);
 
+    // Make the blue_marble texture active.
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
 
     const texture0_location = gl.getUniformLocation(color_texture_shader, "texture0");
     gl.uniform1i(texture0_location, 0);
 
-    // Push the data.
+    // Draw the grid and tile triangles.
     gl.bufferSubData(gl.ARRAY_BUFFER,
                      0,
                      @as(c_int, @intCast(vertex_buffer_index)) * 8 * @sizeOf(f32),
                      &vertex_buffer[0]);
 
-    // Draw the grid and tile triangles.
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(vertex_buffer_index)));
 
     // Reset the vertex_buffer.
     vertex_buffer_index = 0;
     
-    // Draw the quote.
+    // Make the quote texture active.
     gl.bindTexture(gl.TEXTURE_2D, quote_texture);
 
+    // Note: The game window is assumed to have dimensions 1000 x 1000,
+    // which informed the values below.
     const quote_width_f32  : f32 = @floatFromInt(quote_width);
     const quote_height_f32 : f32 = @floatFromInt(quote_height);
     const quote_pos : Vec2 = .{550, 825};
@@ -510,13 +508,12 @@ fn render() void {
 
     draw_color_texture_rectangle(quote_rectangle, SPACE_BLACK, .{0,0}, .{1, 1}, animation_quote_fraction);
 
-    // Push the data.
+    // Draw the quote.
     gl.bufferSubData(gl.ARRAY_BUFFER,
                      0,
                      @as(c_int, @intCast(vertex_buffer_index)) * 8 * @sizeOf(f32),
                      &vertex_buffer[0]);
 
-    // Draw the quote.
     gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(vertex_buffer_index)));    
     
     window.swapBuffers();
@@ -524,6 +521,9 @@ fn render() void {
 
 fn compute_grid_geometry() void {
 
+    // Reset the vertex_buffer.
+    vertex_buffer_index = 0;
+    
     const lambda = animation_won_fraction;
         
     // Compute the tile rectangles.
@@ -911,4 +911,3 @@ fn initialize_xorshiftprng( seed : u64 ) XorShiftPRNG {
     }
     return xorshiftprng;
 }
-
