@@ -312,7 +312,6 @@ fn decompress_qoi_images() void {
 }
 
 fn init_opengl() void {
-    // Setup OpenGL.
     const gl_major = 4;
     const gl_minor = 0;
     glfw.windowHint(.context_version_major, gl_major);
@@ -332,31 +331,19 @@ fn init_opengl() void {
 }
 
 fn process_input() void {
-    keyDownLastFrame = keyDown;
 
-    // Reset keyDown.
-    keyDown = @bitCast(@as(u8, 0));
+    keyDownLastFrame = keyDown;
     
     // Poll GLFW for whether keys are down or not.
-    const w_down = glfw.getKey(window, glfw.Key.w) == glfw.Action.press;
-    const a_down = glfw.getKey(window, glfw.Key.a) == glfw.Action.press;
-    const s_down = glfw.getKey(window, glfw.Key.s) == glfw.Action.press;
-    const d_down = glfw.getKey(window, glfw.Key.d) == glfw.Action.press;
-
-    const up_arrow_down    = glfw.getKey(window, glfw.Key.up) == glfw.Action.press;
-    const left_arrow_down  = glfw.getKey(window, glfw.Key.left)  == glfw.Action.press;
-    const down_arrow_down  = glfw.getKey(window, glfw.Key.down)  == glfw.Action.press;
-    const right_arrow_down = glfw.getKey(window, glfw.Key.right)  == glfw.Action.press;
+    keyDown.w           = glfw.getKey(window, glfw.Key.w) == glfw.Action.press;
+    keyDown.a           = glfw.getKey(window, glfw.Key.a) == glfw.Action.press;
+    keyDown.s           = glfw.getKey(window, glfw.Key.s) == glfw.Action.press;
+    keyDown.d           = glfw.getKey(window, glfw.Key.d) == glfw.Action.press;
     
-    if (w_down) { keyDown.w = true; }
-    if (a_down) { keyDown.a = true; }
-    if (s_down) { keyDown.s = true; }
-    if (d_down) { keyDown.d = true; }
-    
-    if (up_arrow_down)    { keyDown.up_arrow    = true; }
-    if (left_arrow_down)  { keyDown.left_arrow  = true; }
-    if (down_arrow_down)  { keyDown.down_arrow  = true; }
-    if (right_arrow_down) { keyDown.right_arrow = true; }
+    keyDown.up_arrow    = glfw.getKey(window, glfw.Key.up)     == glfw.Action.press;
+    keyDown.left_arrow  = glfw.getKey(window, glfw.Key.left)   == glfw.Action.press;
+    keyDown.down_arrow  = glfw.getKey(window, glfw.Key.down)   == glfw.Action.press;
+    keyDown.right_arrow = glfw.getKey(window, glfw.Key.right)  == glfw.Action.press;
 
     keyPress = @bitCast(@as(u8, @bitCast(keyDown)) & ~ @as(u8, @bitCast(keyDownLastFrame)));
 }
@@ -387,21 +374,10 @@ fn update_state() void {
         animation_tile_fraction = secs_since_animation_start / ANIMATION_SLIDING_TILE_TIME;
     }
     
-    // Calculate the new grid configuration (if it changes).
-    //
-    // E.g.
-    //
-    // 0 1   -- LEFT --> 1 0
-    // 2 3               2 3
-
-    // 1 2                1 0
-    // 3 0    -- DOWN --> 3 2
-
-    
     // Try a move!
     try_grid_update(current_tile_movement_direction);
 
-    // Check if the puzzle is solved if, not already won.
+    // Check if the puzzle is solved (if not already won).
     if (! is_won ) {
         is_won = @reduce(.And, grid == std.simd.iota(u8, TILE_NUMBER));
         if (is_won) {
@@ -412,9 +388,57 @@ fn update_state() void {
     // Calculate the animation_won_fraction.
     if (is_won) {
         const secs_since_won = timestamp_delta_to_seconds(frame_timestamp, won_timestamp);
-
         animation_won_fraction   = std.math.clamp(secs_since_won, 0, ANIMATION_WON_TIME) / ANIMATION_WON_TIME;
         animation_quote_fraction = std.math.clamp(secs_since_won - ANIMATION_WON_TIME + 1, 0, ANIMATION_QUOTE_TIME) / ANIMATION_QUOTE_TIME;
+    }
+}
+
+// Try and move and calculate the new grid configuration (if it changes).
+fn try_grid_update(tile_movement_direction : GridMovementDirection) void {
+    // E.g.
+    //
+    // 0 1  -- LEFT -->  1 0
+    // 2 3               2 3
+
+    // 1 2               1 0
+    // 3 0  -- DOWN -->  3 2
+    
+    // Find empty tile.
+    const empty_tile_index_tilde = find_tile_index(0);
+    const empty_tile_index : u8 = @intCast(empty_tile_index_tilde.?);
+
+    const empty_tile_posx = empty_tile_index % GRID_DIMENSION;
+    const empty_tile_posy = empty_tile_index / GRID_DIMENSION;
+
+    // Determine if the grid needs to be updated.
+    const no_grid_update : bool = switch(tile_movement_direction) {
+        .NONE  => true,
+        .UP    => empty_tile_posy == GRID_DIMENSION - 1,
+        .LEFT  => empty_tile_posx == GRID_DIMENSION - 1,
+        .DOWN  => empty_tile_posy == 0,
+        .RIGHT => empty_tile_posx == 0,
+    };
+
+    // Cancel any existing animation if a movement key was pressed
+    // but the grid cannot be updated.
+    if (no_grid_update and tile_movement_direction != .NONE) {
+        animating_tile = 0;
+    }
+
+    // Update the grid.
+    if (! no_grid_update and ! is_won) {
+        const swap_tile_index : usize = switch(tile_movement_direction) {
+            .NONE  => unreachable,
+            .UP    => empty_tile_index + GRID_DIMENSION,
+            .LEFT  => empty_tile_index + 1,
+            .DOWN  => empty_tile_index - GRID_DIMENSION,
+            .RIGHT => empty_tile_index - 1,
+        };
+
+        grid[empty_tile_index] = grid[swap_tile_index];
+        grid[swap_tile_index] = 0;
+        animating_tile = grid[empty_tile_index];
+        animation_direction = tile_movement_direction;
     }
 }
 
@@ -888,67 +912,3 @@ fn initialize_xorshiftprng( seed : u64 ) XorShiftPRNG {
     return xorshiftprng;
 }
 
-// // Draw the tile textures.
-// gl.bindVertexArray(texture_vao);
-// gl.bindBuffer(gl.ARRAY_BUFFER, texture_vbo);
-
-// gl.useProgram(texture_shader);
-
-// const lambda : f32 = 0.5 + 0.5 * @sin(program_secs);
-// const lambda_shader_location   = gl.getUniformLocation(texture_shader, "lambda");
-// gl.uniform1f(lambda_shader_location, lambda);
-
-
-// const ic : [4] f32 = .{1, 0, 1, 1};
-// const interpolating_color_shader_location = gl.getUniformLocation(texture_shader, "interpolating_color");
-// gl.uniform4f(interpolating_color_shader_location, ic[0], ic[1], ic[2], ic[3]);
-
-
-
-// gl.bufferSubData(gl.ARRAY_BUFFER,
-//                  0,
-//                  @as(c_int, @intCast(texture_vertex_buffer_index)) * 4 * @sizeOf(f32),
-//                  &texture_vertex_buffer[0]);
-
-// gl.drawArrays(gl.TRIANGLES, 0, @as(c_int, @intCast(texture_vertex_buffer_index)));
-
-
-fn try_grid_update(tile_movement_direction : GridMovementDirection) void {
-    // Find empty tile.
-    const empty_tile_index_tilde = find_tile_index(0);
-    const empty_tile_index : u8 = @intCast(empty_tile_index_tilde.?);
-
-    const empty_tile_posx = empty_tile_index % GRID_DIMENSION;
-    const empty_tile_posy = empty_tile_index / GRID_DIMENSION;
-
-    // Determine if the grid needs to be updated.
-    const no_grid_update : bool = switch(tile_movement_direction) {
-        .NONE  => true,
-        .UP    => empty_tile_posy == GRID_DIMENSION - 1,
-        .LEFT  => empty_tile_posx == GRID_DIMENSION - 1,
-        .DOWN  => empty_tile_posy == 0,
-        .RIGHT => empty_tile_posx == 0,
-    };
-
-    // Cancel any existing animation if a movement key was pressed
-    // but the grid cannot be updated.
-    if (no_grid_update and tile_movement_direction != .NONE) {
-        animating_tile = 0;
-    }
-
-    // Update the grid.
-    if (! no_grid_update and ! is_won) {
-        const swap_tile_index : usize = switch(tile_movement_direction) {
-            .NONE => unreachable,
-            .UP   => empty_tile_index + GRID_DIMENSION,
-            .LEFT => empty_tile_index + 1,
-            .DOWN => empty_tile_index - GRID_DIMENSION,
-            .RIGHT => empty_tile_index - 1,
-        };
-
-        grid[empty_tile_index] = grid[swap_tile_index];
-        grid[swap_tile_index] = 0;
-        animating_tile = grid[empty_tile_index];
-        animation_direction = tile_movement_direction;
-    }
-}
