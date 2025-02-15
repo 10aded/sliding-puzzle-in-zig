@@ -214,15 +214,14 @@ fn colorTextureVertex( x : f32, y : f32, r : f32, g : f32, b :f32, tx : f32, ty 
 var vertex_buffer : [500] ColorTextureVertex = undefined;
 var vertex_buffer_index : usize = 0;
 
-// The .pos field represents the center of the rectangle.
 const Rectangle = struct {
-    pos    : Vec2,
+    center : Vec2,
     width  : f32,
     height : f32,
 };
 
 fn rectangle(pos : Vec2, width : f32, height : f32) Rectangle {
-    return Rectangle{.pos = pos, .width = width, .height = height};
+    return Rectangle{.center = pos, .width = width, .height = height};
 }
 
 
@@ -273,7 +272,7 @@ fn init_grid() void {
     //
     // Additionally, from a starting solved state randomly applying
     // grid moves will not in general create a grid that is
-    // "sufficently" shuffled. See, for example:
+    // "sufficiently" shuffled. See, for example:
     //
     //     https://en.wikipedia.org/wiki/Random_walk#Lattice_random_walk
     //
@@ -704,7 +703,7 @@ fn compute_grid_geometry() void {
         if (tile == 0 or tile == animating_tile) { continue; }
 
         const rect = grid_tile_rectangles[i];
-        const tile_border_rect = rectangle(rect.pos, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
+        const tile_border_rect = rectangle(rect.center, TILE_BORDER_RECT_WIDTH, TILE_BORDER_RECT_WIDTH);
 
         // Calculate the texture tl of the tile (that is, the thing inside the border).
         const tilex : f32 = @floatFromInt(tile % GRID_DIMENSION);
@@ -734,7 +733,7 @@ fn compute_grid_geometry() void {
         const animating_tile_index : u8 = @intCast(animating_tile_index_tilde.?);
 
         const final_tile_rect = grid_tile_rectangles[animating_tile_index];
-        const final_tile_pos = final_tile_rect.pos;
+        const final_tile_pos = final_tile_rect.center;
 
         const ANIMATION_DISTANCE = TILE_WIDTH + 2 * TILE_BORDER_WIDTH + TILE_SPACING;
         const AD = ANIMATION_DISTANCE;
@@ -779,10 +778,10 @@ fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_text
     const brtc = bottom_right_texture_coord;
 
     // Compute the rectangle corner coordinates.
-    const xleft   = rect.pos[0] - 0.5 * rect.width;
-    const xright  = rect.pos[0] + 0.5 * rect.width;
-    const ytop    = rect.pos[1] - 0.5 * rect.height;
-    const ybottom = rect.pos[1] + 0.5 * rect.height;
+    const xleft   = rect.center[0] - 0.5 * rect.width;
+    const xright  = rect.center[0] + 0.5 * rect.width;
+    const ytop    = rect.center[1] - 0.5 * rect.height;
+    const ybottom = rect.center[1] + 0.5 * rect.height;
 
     const color_f32 : Vec4 = @floatFromInt(color);
     const splat255  : Vec4 = @splat(255);
