@@ -43,13 +43,14 @@ const qoi = @import("./Dependencies/qoi.zig");
 const PI = std.math.pi;
 
 // The size of the puzzle grid.
-const GRID_DIMENSION = 2;
+const GRID_DIMENSION = 3;
 
 // Note: The game can be (unexpectedly) very difficult when
 // GRID_DIMENSION >= 4.
 
 // Type aliases.
 const Vec2  = @Vector(2, f32);
+const Vec4  = @Vector(4, f32);
 const Color = @Vector(4, u8);
 
 const VAO           = c_uint;
@@ -326,6 +327,152 @@ fn init_opengl() void {
     zopengl.loadCoreProfile(glfw.getProcAddress, gl_major, gl_minor) catch unreachable;
 
     glfw.swapInterval(1);
+}
+
+fn compile_shaders() ShaderCompileError!void {
+    background_shader    = try compile_shader(vertex_background,    fragment_background);
+    color_texture_shader = try compile_shader(vertex_color_texture, fragment_color_texture);
+}
+
+fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
+
+    const stderr = std.io.getStdErr().writer();
+
+    const gl = zopengl.bindings;
+    
+    const vSID : c_uint = gl.createShader(gl.VERTEX_SHADER);
+    const fSID : c_uint = gl.createShader(gl.FRAGMENT_SHADER);
+    
+    const vss_location : [*c] const u8 = &vertex_shader_source[0];
+    const fss_location : [*c] const u8 = &fragment_shader_source[0];
+
+    // Add the source of the shaders to the objects.
+    gl.shaderSource(vSID, 1, &vss_location, null);
+    gl.shaderSource(fSID, 1, &fss_location, null);
+
+    // Attempt to compile the shaders.
+    gl.compileShader(vSID);
+    gl.compileShader(fSID);
+
+    // Check the shaders actually compiled.
+    var vertex_success   : c_int = undefined;
+    var fragment_success : c_int = undefined;
+
+    gl.getShaderiv(vSID, gl.COMPILE_STATUS, &vertex_success);
+    gl.getShaderiv(fSID, gl.COMPILE_STATUS, &fragment_success);
+
+    var log_bytes : [512] u8 = undefined;
+
+    if (vertex_success != gl.TRUE) {
+        gl.getShaderInfoLog(vSID, 512, null, &log_bytes);
+        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
+        return ShaderCompileError.VertexShaderCompFail;
+    } else {
+        std.debug.print("DEBUG: vertex shader {} compilation: success\n", .{vSID});
+    }
+
+    if (fragment_success != gl.TRUE) {
+        gl.getShaderInfoLog(fSID, 512, null, &log_bytes);
+        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
+        return ShaderCompileError.FragmentShaderCompFail;
+    } else {
+        std.debug.print("DEBUG: fragment shader {} compilation: success\n", .{fSID});
+    }
+
+	// Attempt to link shaders.
+    const pID : c_uint = gl.createProgram();
+    gl.attachShader(pID, vSID);
+    gl.attachShader(pID, fSID);
+    gl.linkProgram(pID);
+
+	// Check for linking errors. If none, clean up shaders.
+    var compile_success : c_int = undefined;
+	gl.getProgramiv(pID, gl.LINK_STATUS, &compile_success);
+
+	if(compile_success != gl.TRUE) {
+		gl.getProgramInfoLog(pID, 512, null, &log_bytes);
+        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
+        return ShaderCompileError.ShaderLinkFail;
+	} else {
+        std.debug.print("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID});
+    	gl.deleteShader(vSID);
+		gl.deleteShader(fSID);
+    }
+
+    return pID;
+}
+
+fn setup_array_buffers() void {
+    
+    const gl = zopengl.bindings;
+
+    // Set up background VAO / VBO.
+    // Note: This assumes the window dimensions are 1000 x 1000.
+    var background_vertex_buffer = [6 * 2] f32 {
+        0, 0,
+        0, 1000,
+        1000, 1000,
+        0, 0,
+        1000, 0,
+        1000, 1000,
+    };
+    
+    gl.genVertexArrays(1, &background_vao);
+    gl.bindVertexArray(background_vao);
+
+    gl.genBuffers(1, &background_vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
+
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(background_vertex_buffer)), &background_vertex_buffer[0], gl.STATIC_DRAW);
+
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), @ptrFromInt(0));
+    gl.enableVertexAttribArray(0);
+    
+    // Set up color_texture VAO / VBO.
+    gl.genVertexArrays(1, &color_texture_vao);
+    gl.bindVertexArray(color_texture_vao);
+
+    gl.genBuffers(1, &color_texture_vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, color_texture_vbo);    
+
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(vertex_buffer)), null, gl.DYNAMIC_DRAW);
+
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(0));
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
+    gl.vertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(5 * @sizeOf(f32)));
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(7 * @sizeOf(f32)));
+    
+    gl.enableVertexAttribArray(0);
+    gl.enableVertexAttribArray(1);
+    gl.enableVertexAttribArray(2);
+    gl.enableVertexAttribArray(3);
+    
+    // Setup blue_marble texture.
+    gl.genTextures(1, &blue_marble_texture);
+    gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    // Note: The width and height have type "GLsizei"... i.e. a i32.
+    const bm_width  : i32 = @intCast(blue_marble_width);
+    const bm_height : i32 = @intCast(blue_marble_height);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bm_width, bm_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &blue_marble_pixel_bytes[0]);
+
+    // Set up quote texture.
+    gl.genTextures(1, &quote_texture);
+    gl.bindTexture(gl.TEXTURE_2D, quote_texture);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    const q_width  : i32 = @intCast(quote_width);
+    const q_height : i32 = @intCast(quote_height);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, q_width, q_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &quote_pixel_bytes[0]);
 }
 
 fn process_input() void {
@@ -624,20 +771,25 @@ fn compute_grid_geometry() void {
     }
 }
 
+// Figure out and store the GPU data that will draw a rectangle
+// interpolating a single specified color and a portion of a texture.
 fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_texture_coord : Vec2, bottom_right_texture_coord : Vec2, lambda : f32 ) void {
 
     const tltc = top_left_texture_coord;
     const brtc = bottom_right_texture_coord;
 
-    // Compute the coordinates of the corners of the rectangle.
+    // Compute the rectangle corner coordinates.
     const xleft   = rect.pos[0] - 0.5 * rect.width;
     const xright  = rect.pos[0] + 0.5 * rect.width;
     const ytop    = rect.pos[1] - 0.5 * rect.height;
     const ybottom = rect.pos[1] + 0.5 * rect.height;
 
-    const r = @as(f32, @floatFromInt(color[0])) / 255;
-    const g = @as(f32, @floatFromInt(color[1])) / 255;
-    const b = @as(f32, @floatFromInt(color[2])) / 255;
+    const color_f32 : Vec4 = @floatFromInt(color);
+    const splat255  : Vec4 = @splat(255);
+    const color_norm = color_f32 / splat255;
+    const r = color_norm[0];
+    const g = color_norm[1];
+    const b = color_norm[2];
 
     // Compute the coordinates of the texture.
     const sleft   = tltc[0];
@@ -646,14 +798,14 @@ fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_text
     const tbottom = brtc[1];
     
     // Compute nodes we will push to the GPU.
-    const v0 = colorTextureVertex(xleft,  ytop, r, g, b, sleft, ttop, lambda);
-    const v1 = colorTextureVertex(xright, ytop, r, g, b, sright, ttop, lambda);
-    const v2 = colorTextureVertex(xleft,  ybottom, r, g, b, sleft, tbottom, lambda);
+    const v0 = colorTextureVertex(xleft,  ytop,    r, g, b, sleft,  ttop,    lambda);
+    const v1 = colorTextureVertex(xright, ytop,    r, g, b, sright, ttop,    lambda);
+    const v2 = colorTextureVertex(xleft,  ybottom, r, g, b, sleft,  tbottom, lambda);
     const v3 = v1;
     const v4 = v2;
     const v5 = colorTextureVertex(xright, ybottom, r, g, b, sright, tbottom, lambda);
 
-    // Set the color_buffer with the data.
+    // Set the vertex buffer with the data.
     const buffer = &vertex_buffer;
     const i      = vertex_buffer_index;
 
@@ -667,167 +819,16 @@ fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_text
     vertex_buffer_index += 6;
 }
 
-fn compile_shaders() ShaderCompileError!void {
-
-    background_shader = try compile_shader(vertex_background, fragment_background);
-    color_texture_shader    = try compile_shader(vertex_color_texture, fragment_color_texture);
-}
-
-fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
-
-    const stderr = std.io.getStdErr().writer();
-
-    const gl = zopengl.bindings;
-    
-    const vSID : c_uint = gl.createShader(gl.VERTEX_SHADER);
-    const fSID : c_uint = gl.createShader(gl.FRAGMENT_SHADER);
-
-    // const vertex_shader_source   = @embedFile("vertex.glsl");
-    // const fragment_shader_source = @embedFile("fragment.glsl");
-    
-    const vss_location : [*c] const u8 = &vertex_shader_source[0];
-    const fss_location : [*c] const u8 = &fragment_shader_source[0];
-
-    // Add the source of the shaders to the objects.
-    gl.shaderSource(vSID, 1, &vss_location, null);
-    gl.shaderSource(fSID, 1, &fss_location, null);
-
-    // Attempt to compile the shaders.
-    gl.compileShader(vSID);
-    gl.compileShader(fSID);
-
-    // Check the shaders actually compiled.
-    var vertex_success   : c_int = undefined;
-    var fragment_success : c_int = undefined;
-
-    gl.getShaderiv(vSID, gl.COMPILE_STATUS, &vertex_success);
-    gl.getShaderiv(fSID, gl.COMPILE_STATUS, &fragment_success);
-
-    var log_bytes : [512] u8 = undefined;
-
-    if (vertex_success != gl.TRUE) {
-        gl.getShaderInfoLog(vSID, 512, null, &log_bytes);
-        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
-        return ShaderCompileError.VertexShaderCompFail;
-    } else {
-        std.debug.print("DEBUG: vertex shader {} compilation: success\n", .{vSID});
-    }
-
-    if (fragment_success != gl.TRUE) {
-        gl.getShaderInfoLog(fSID, 512, null, &log_bytes);
-        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
-        return ShaderCompileError.FragmentShaderCompFail;
-    } else {
-        std.debug.print("DEBUG: fragment shader {} compilation: success\n", .{fSID});
-    }
-
-	// Attempt to link shaders.
-    const pID : c_uint = gl.createProgram();
-    gl.attachShader(pID, vSID);
-    gl.attachShader(pID, fSID);
-    gl.linkProgram(pID);
-
-	// Check for linking errors. If none, clean up shaders.
-    var compile_success : c_int = undefined;
-	gl.getProgramiv(pID, gl.LINK_STATUS, &compile_success);
-
-	if(compile_success != gl.TRUE) {
-		gl.getProgramInfoLog(pID, 512, null, &log_bytes);
-        stderr.print("{s}\n", .{log_bytes}) catch unreachable;
-        return ShaderCompileError.ShaderLinkFail;
-	} else {
-        std.debug.print("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID});
-    	gl.deleteShader(vSID);
-		gl.deleteShader(fSID);
-    }
-
-    return pID;
-}
-
-fn setup_array_buffers() void {
-    
-    const gl = zopengl.bindings;
-
-    // Set up background VAO / VBO.
-    var background_vertex_buffer = [6 * 2] f32 {
-        0, 0,
-        0, 1000,
-        1000, 1000,
-        0, 0,
-        1000, 0,
-        1000, 1000,
-    };
-    
-    gl.genVertexArrays(1, &background_vao);
-    gl.bindVertexArray(background_vao);
-
-    gl.genBuffers(1, &background_vbo);
-    gl.bindBuffer(gl.ARRAY_BUFFER, background_vbo);
-
-    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(background_vertex_buffer)), &background_vertex_buffer[0], gl.STATIC_DRAW);
-
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), @ptrFromInt(0));
-    gl.enableVertexAttribArray(0);
-    
-    // Set up color_texture VAO / VBO.
-    gl.genVertexArrays(1, &color_texture_vao);
-    gl.bindVertexArray(color_texture_vao);
-
-    gl.genBuffers(1, &color_texture_vbo);
-    gl.bindBuffer(gl.ARRAY_BUFFER, color_texture_vbo);    
-
-    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(vertex_buffer)), null, gl.DYNAMIC_DRAW);
-
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(0));
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(2 * @sizeOf(f32)));
-    gl.vertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(5 * @sizeOf(f32)));
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @ptrFromInt(7 * @sizeOf(f32)));
-    
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
-    gl.enableVertexAttribArray(2);
-    gl.enableVertexAttribArray(3);
-    
-    // Setup blue_marble texture.
-    gl.genTextures(1, &blue_marble_texture);
-    gl.bindTexture(gl.TEXTURE_2D, blue_marble_texture);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    // Note: The width and height have type "GLsizei"... i.e. a i32.
-    const bm_width  : i32 = @intCast(blue_marble_width);
-    const bm_height : i32 = @intCast(blue_marble_height);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bm_width, bm_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &blue_marble_pixel_bytes[0]);
-
-    // Set up quote texture.
-    gl.genTextures(1, &quote_texture);
-    gl.bindTexture(gl.TEXTURE_2D, quote_texture);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-    // Note: The width and height have type "GLsizei"... i.e. a i32.
-    const q_width  : i32 = @intCast(quote_width);
-    const q_height : i32 = @intCast(quote_height);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, q_width, q_height, 0, gl.RGBA, gl.UNSIGNED_BYTE, &quote_pixel_bytes[0]);
-}
-
 fn find_tile_index( wanted_tile : u8) ?usize {
     for (grid, 0..) |tile, i| {
-        if (tile == wanted_tile) {
-            return i;
-        }
+        if (tile == wanted_tile) { return i; }
     }
     return null;
 }
 
 fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
-    // The stopwatch is monotonic, so this shouldn't give an underflow...
+    // The stopwatch is monotonic, so the difference
+    // shouldn't give an runtime underflow panic.
     const nano_diff : f32 = @floatFromInt(t2 - t1);
     const secs_diff = nano_diff / 1_000_000_000;
     return secs_diff;
