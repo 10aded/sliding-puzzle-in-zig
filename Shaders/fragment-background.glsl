@@ -1,5 +1,7 @@
 #version 330
 
+out vec4 FragColor;
+
 const float PI = 3.1415926535897932384626433832795;
 
 uniform float lp;
@@ -48,5 +50,5 @@ void main(void)
     
     vec4 final_color = (1 - in_disk) * BACKGROUND + in_disk * DISK_COLOR;
     
-    gl_FragColor = final_color;
+    FragColor = final_color;
 }
