@@ -756,8 +756,8 @@ fn compute_grid_geometry() void {
         const tilex : f32 = @floatFromInt(animating_tile % GRID_DIMENSION);
         const tiley : f32 = @floatFromInt(animating_tile / GRID_DIMENSION);
         
-        const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + tilex * (TILE_WIDTH + TILE_SPACING);
-        const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + tiley * (TILE_WIDTH + TILE_SPACING);
+        const tl_x = (2 * tilex + 1) * TILE_BORDER_WIDTH + (tilex + 1 ) * TILE_SPACING + tilex * TILE_WIDTH;
+        const tl_y = (2 * tiley + 1) * TILE_BORDER_WIDTH + (tiley + 1 ) * TILE_SPACING + tiley * TILE_WIDTH;
 
         const tl_inner = Vec2{tl_x, tl_y};
         const br_inner = tl_inner + tile_width_splat;
