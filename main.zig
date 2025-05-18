@@ -10,8 +10,7 @@
 // run in the top directory of the project.
 //
 // Building the project requires the compiler version to be
-// a recent 0.14.0-dev version (such as 0.14.0-dev.3020+c104e8644)
-// at minimum.
+// a at minimum 0.14.0.
 // 
 // The entire source code of this project is available on GitHub at:
 //
@@ -20,6 +19,7 @@
 // and was developed (almost) entirely on the Twitch channel 10aded.
 // Copies of the stream are on YouTube at the @10aded channel.
 //
+// TODO: Replace this...
 // This project includes a copies of the Zig gamedev libraries:
 //   * zglfw
 //   * zopengl;

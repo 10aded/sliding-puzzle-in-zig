@@ -1,14 +1,12 @@
 .{
-    .name = "sliding-puzzle",
-    .version = "1.0.0",
-    .minimum_zig_version = "0.14.0-dev.3020+c104e8644",
+    .name = .earth_sliding_puzzle,
+    .version = "1.0.1",
+    .fingerprint = 0x8e43ffef3053835a, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.0",
 
+    // TODO: Replace...
     // NOTE: The following dependencies have been copied into
     // the source code, for the moment.
-
-    // When they work with Zig 0.14.0 (not yet released)
-    // we'll aim to updated them to their github links.
-
     // For now, they'll stay local!
 
     .dependencies = .{
