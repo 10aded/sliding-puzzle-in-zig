@@ -40,7 +40,7 @@ const glfw    = @import("zglfw");
 const zopengl = @import("zopengl");
 
 // Our own QOI image parsing library.
-const qoi = @import("./Dependencies/qoi.zig");
+const qoi = @import("qoi.zig");
 
 // Constant aliases.
 const PI = std.math.pi;
