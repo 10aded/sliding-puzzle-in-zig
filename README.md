@@ -25,9 +25,9 @@ This project has been tested with on Windows 11; compilation of the game on othe
 
 ## Dependencies
 
-The project is written in Zig and uses two Zig gamedev libraries, currently bundled with the repo: `zglfw`, `zopengl`.
+The project is written in Zig and uses two Zig gamedev libraries: `zglfw`, `zopengl`. Both are fetched by the compiler the first time `zig build run` is invoked.
 
-Both are available on GitHub at: https://github.com/zig-gamedev
+Nonetheless, both are available on GitHub at: https://github.com/zig-gamedev
 
 ## Development
 
@@ -37,4 +37,4 @@ https://www.twitch.tv/10aded
 
 https://www.youtube.com/@10aded
 
-The project was originally built with a dev Zig `0.14.0-dev.3020+c104e8644` compiler, and updated to use Zig `0.14.0` in 18 June 2025.
+The project was originally built with a dev Zig `0.14.0-dev.3020+c104e8644` compiler, and updated to use Zig `0.14.0` in 18 May 2025.

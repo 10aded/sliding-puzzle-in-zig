@@ -1,7 +1,8 @@
 // This is a simple sliding puzzle game. Solving the game
 // typically takes less than 10 minutes.
 //
-// Created by 10aded throughout Feb 2025. 
+// Created by 10aded throughout Feb 2025.
+// Updated to use the Zig 0.14.0 compiler on 18 May 2025.
 //
 // The project is built with the command:
 //
@@ -19,11 +20,13 @@
 // and was developed (almost) entirely on the Twitch channel 10aded.
 // Copies of the stream are on YouTube at the @10aded channel.
 //
-// TODO: Replace this...
-// This project includes a copies of the Zig gamedev libraries:
+// This project has two Zig gamedev library dependencies:
 //   * zglfw
 //   * zopengl;
-// both are available on GitHub at:
+// these are both automatically fetched when the command "zig build run" is used
+// for the first time.
+//
+// Both libraries are available on GitHub at:
 //
 //    https://github.com/zig-gamedev
 //
