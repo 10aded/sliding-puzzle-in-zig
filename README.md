@@ -19,7 +19,7 @@ A release build can be created with the following command.
 
 `zig build -Doptimize=ReleaseFast`
 
-Building the project requires the compiler to be version `0.14.0` at minimum, available from the [download page](https://ziglang.org/download/) on `ziglang.org`.
+Building the project requires the compiler to be version `0.15.1` at minimum, available from the [download page](https://ziglang.org/download/) on `ziglang.org`.
 
 This project has been tested with on Windows 11; compilation of the game on other operating systems has not been tested.
 
@@ -37,4 +37,4 @@ https://www.twitch.tv/10aded
 
 https://www.youtube.com/@10aded
 
-The project was originally built with a dev Zig `0.14.0-dev.3020+c104e8644` compiler, and updated to use Zig `0.14.0` in 18 May 2025.
+The project was originally built with a dev Zig `0.14.0-dev.3020+c104e8644` compiler, and updated to use Zig `0.15.1` in 26 August 2025

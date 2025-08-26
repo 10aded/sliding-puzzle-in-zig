@@ -2,7 +2,7 @@
 // typically takes less than 10 minutes.
 //
 // Created by 10aded throughout Feb 2025.
-// Updated to use the Zig 0.14.0 compiler on 18 May 2025.
+// Updated to use the Zig 0.15.1 compiler on 26 Aug 2025.
 //
 // The project is built with the command:
 //
@@ -11,7 +11,7 @@
 // run in the top directory of the project.
 //
 // Building the project requires the compiler version to be
-// a at minimum 0.14.0.
+// a at minimum 0.15.1
 // 
 // The entire source code of this project is available on GitHub at:
 //
@@ -338,8 +338,10 @@ fn compile_shaders() ShaderCompileError!void {
 
 fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
 
-    const stderr = std.io.getStdErr().writer();
-
+    var stderr_buffer : [256] u8 = undefined;
+    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    const stderr = &stderr_writer.interface;
+    
     const gl = zopengl.bindings;
     
     const vSID : c_uint = gl.createShader(gl.VERTEX_SHADER);
@@ -368,6 +370,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
     if (vertex_success != gl.TRUE) {
         gl.getShaderInfoLog(vSID, 512, null, &log_bytes);
         stderr.print("{s}\n", .{log_bytes}) catch unreachable;
+        stderr.flush() catch unreachable;
         return ShaderCompileError.VertexShaderCompFail;
     } else {
         std.debug.print("DEBUG: vertex shader {} compilation: success\n", .{vSID});
@@ -376,6 +379,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
     if (fragment_success != gl.TRUE) {
         gl.getShaderInfoLog(fSID, 512, null, &log_bytes);
         stderr.print("{s}\n", .{log_bytes}) catch unreachable;
+        stderr.flush() catch unreachable;
         return ShaderCompileError.FragmentShaderCompFail;
     } else {
         std.debug.print("DEBUG: fragment shader {} compilation: success\n", .{fSID});
@@ -394,6 +398,7 @@ fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source 
 	if(compile_success != gl.TRUE) {
 		gl.getProgramInfoLog(pID, 512, null, &log_bytes);
         stderr.print("{s}\n", .{log_bytes}) catch unreachable;
+        stderr.flush() catch unreachable;
         return ShaderCompileError.ShaderLinkFail;
 	} else {
         std.debug.print("DEBUG: vertex and fragment shader {} linkage: success\n", .{pID});

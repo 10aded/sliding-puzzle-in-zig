@@ -2,18 +2,16 @@
     .name = .earth_sliding_puzzle,
     .version = "1.0.1",
     .fingerprint = 0x8e43ffef3053835a, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.1",
 
     .dependencies = .{
-
         .zglfw = .{
-            .url = "git+https://github.com/zig-gamedev/zglfw.git#c337cb3d3f984468ea7a386335937a5d555fc024",
-            .hash = "zglfw-0.10.0-dev-zgVDNMacIQA-k7kNSfwUc9Lfzx-bb_wklVm25K-p8Tr7",
+            .url = "git+https://github.com/zig-gamedev/zglfw.git#feeeff9386dd44ba2c18488113023865c41b80a4",
+            .hash = "zglfw-0.10.0-dev-zgVDNLyhIQCZR_rbIf7hnCKuifzcmPOLOQhd_hrqq8cl",
         },
-
         .zopengl = .{
-            .url = "git+https://github.com/zig-gamedev/zopengl.git#d264cab3c4dd3734a79b102b912880a497427133",
-            .hash = "zopengl-0.6.0-dev-5-tnz5dlCADYpffQdOFMtwLbB-w7caLobHCoUg_uCdGU",
+            .url = "git+https://github.com/zig-gamedev/zopengl.git#33ae578d91692c814e7d6b4b42573142475f68d0",
+            .hash = "zopengl-0.6.0-dev-5-tnz7Y8CQCW_JRgxPCM4ETsKGOGHddqw5y1XaXhrsb4",
         },
     },
     .paths = .{ "main.zig", "build.zig", "build.zig.zon", "README.md", "LICENCE", "preview.gif", "./Assets", "./Shaders", "./Dependencies" },
