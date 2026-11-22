@@ -1,29 +1,42 @@
-const std     = @import("std");
+const std = @import("std");
 
 pub fn build(b: *std.Build) void {
 
     const target = b.standardTargetOptions(.{});
 	const optimize = b.standardOptimizeOption(.{});
     
+    const zglfw_dep = b.dependency("zglfw_dep", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const zopengl_dep = b.dependency("zopengl_dep", .{
+        .target = target,
+        // .optimize = optimize, // Causes a compile error; not currently a valid option for zopengl.
+    });    
+
     const exe = b.addExecutable(.{
         .name = "sliding-puzzle",
         .root_module = b.createModule(.{
 		    .root_source_file = b.path("main.zig"),
 		    .target = target,
             .optimize = optimize,
+            .imports = &.{
+                .{
+                    .name = "zglfw",
+                    .module = zglfw_dep.module("root"),
+                },
+                .{
+                    .name = "zopengl",
+                    .module = zopengl_dep.module("root"),
+                },
+            },
         }),
     });
-    
-    const zglfw = b.dependency("zglfw", .{});
-    exe.root_module.addImport("zglfw", zglfw.module("root"));
 
     if (target.result.os.tag != .emscripten) {
-        exe.linkLibrary(zglfw.artifact("glfw"));
+        exe.root_module.linkLibrary(zglfw_dep.artifact("glfw"));
     }
-
-    const zopengl = b.dependency("zopengl", .{});
-    exe.root_module.addImport("zopengl", zopengl.module("root"));
-    
 
     // Usually this is b.installArtifact(exe), but that is just the line below
     // with default options.

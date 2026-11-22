@@ -2,7 +2,7 @@
 // typically takes less than 10 minutes.
 //
 // Created by 10aded throughout Feb 2025.
-// Updated to use the Zig 0.15.1 compiler on 26 Aug 2025.
+// Updated to use the Zig 0.17.1 compiler on 22 Nov 2026.
 //
 // The project is built with the command:
 //
@@ -11,7 +11,7 @@
 // run in the top directory of the project.
 //
 // Building the project requires the compiler version to be
-// a at minimum 0.15.1
+// a at minimum 0.17.1
 // 
 // The entire source code of this project is available on GitHub at:
 //
@@ -54,7 +54,7 @@ const GRID_DIMENSION = 3;
 // Type aliases.
 const Vec2  = @Vector(2, f32);
 const Vec4  = @Vector(4, f32);
-const Color = @Vector(4, u8);
+const Color = [4] u8;
 
 const VAO           = c_uint;
 const VBO           = c_uint;
@@ -160,13 +160,10 @@ var current_tile_movement_direction : GridMovementDirection = .NONE;
 var global_prng : XorShiftPRNG = undefined;
 
 // Timing
-var stopwatch : std.time.Timer = undefined;
-
-// Note: Timestamps are in nanoseconds.
-var program_start_timestamp   : u64 = undefined;
-var frame_timestamp           : u64 = undefined;
-var animation_start_timestamp : u64 = undefined;
-var won_timestamp             : u64 = undefined;
+var program_start_timestamp   : std.Io.Timestamp = .zero;
+var frame_timestamp           : std.Io.Timestamp = .zero;
+var animation_start_timestamp : std.Io.Timestamp = .zero;
+var won_timestamp             : std.Io.Timestamp = .zero;
 
 // Animation
 const ANIMATION_SLIDING_TILE_TIME : f32 = 0.15;
@@ -229,9 +226,8 @@ fn rectangle(pos : Vec2, width : f32, height : f32) Rectangle {
 
 
 
-pub fn main() void {
-    stopwatch = std.time.Timer.start() catch unreachable;
-    program_start_timestamp = stopwatch.read();
+pub fn main(init: std.process.Init) void {
+    program_start_timestamp = std.Io.Clock.awake.now(init.io);
 
     init_grid();
 
@@ -242,13 +238,13 @@ pub fn main() void {
     
     init_opengl();
 
-    compile_shaders() catch unreachable;
+    compile_shaders(init.io) catch unreachable;
     
     setup_array_buffers();
 
     while (!window.shouldClose()) {
 
-        frame_timestamp = stopwatch.read();
+        frame_timestamp = std.Io.Clock.awake.now(init.io);
         
         glfw.pollEvents();
 
@@ -266,7 +262,7 @@ pub fn main() void {
 
 fn init_grid() void {
     // Initialize PRNG.
-    const seed : u64 = program_start_timestamp;
+    const seed : u64 = @intCast(program_start_timestamp.toMicroseconds());
     global_prng = initialize_xorshiftprng(seed);
 
     // NOTE: Initializing the grid with a random shuffle will produce
@@ -322,7 +318,7 @@ fn init_opengl() void {
     glfw.windowHint(.client_api, .opengl_api);
     glfw.windowHint(.doublebuffer, true);
 
-    window = glfw.Window.create(1000, 1000, "Sliding Puzzle Game", null) catch unreachable;
+    window = glfw.Window.create(1000, 1000, "Sliding Puzzle Game", null, null) catch unreachable;
 
     glfw.makeContextCurrent(window);
 
@@ -331,15 +327,16 @@ fn init_opengl() void {
     glfw.swapInterval(1);
 }
 
-fn compile_shaders() ShaderCompileError!void {
-    background_shader    = try compile_shader(vertex_background,    fragment_background);
-    color_texture_shader = try compile_shader(vertex_color_texture, fragment_color_texture);
+fn compile_shaders(io : std.Io) ShaderCompileError!void {
+    background_shader    = try compile_shader(io, vertex_background,    fragment_background);
+    color_texture_shader = try compile_shader(io, vertex_color_texture, fragment_color_texture);
 }
 
-fn compile_shader( vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
+fn compile_shader(io : std.Io,  vertex_shader_source : [:0] const u8, fragment_shader_source : [:0] const u8 ) ShaderCompileError!ShaderProgram {
 
     var stderr_buffer : [256] u8 = undefined;
-    var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    // var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+    var stderr_writer = std.Io.File.stderr().writer(io, &stderr_buffer);
     const stderr = &stderr_writer.interface;
     
     const gl = zopengl.bindings;
@@ -791,7 +788,8 @@ fn draw_color_texture_rectangle( rect : Rectangle , color : Color, top_left_text
     const ytop    = rect.center[1] - 0.5 * rect.height;
     const ybottom = rect.center[1] + 0.5 * rect.height;
 
-    const color_f32 : Vec4 = @floatFromInt(color);
+    const color_vec : @Vector(4, u8) = color;
+    const color_f32 : Vec4 = @floatFromInt(color_vec);
     const splat255  : Vec4 = @splat(255);
     const color_norm = color_f32 / splat255;
     const r = color_norm[0];
@@ -833,10 +831,11 @@ fn find_tile_index( wanted_tile : u8) ?usize {
     return null;
 }
 
-fn timestamp_delta_to_seconds(t2 : u64, t1 : u64) f32 {
+fn timestamp_delta_to_seconds(t2 : std.Io.Timestamp, t1 : std.Io.Timestamp) f32 {
     // The stopwatch is monotonic, so the difference
     // shouldn't give an runtime underflow panic.
-    const nano_diff : f32 = @floatFromInt(t2 - t1);
+    const duration: std.Io.Duration = t1.durationTo(t2);
+    const nano_diff : f32 = @floatFromInt(duration.toNanoseconds());
     const secs_diff = nano_diff / 1_000_000_000;
     return secs_diff;
 }
